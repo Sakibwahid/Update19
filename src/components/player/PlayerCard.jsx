@@ -17,10 +17,10 @@ const PlayerCard = ({ player, onClick }) => {
       <div className="h-full w-full flex flex-col gap-1">
         {/* Top section */}
         <div className="flex justify-between items-center px-8 mt-10">
-          <Text variant="para" className="font-bold text-2xl text-gray-800 p-2">
+          <Text variant="para" className="font-bold text-2xl text-yellow-400 p-2">
             {player.Overall}
           </Text>
-          <Text variant="para" className="font-semibold text-gray-800">
+          <Text variant="para" className="font-semibold text-yellow-400">
             {player.Position}
           </Text>
         </div>
@@ -33,7 +33,7 @@ const PlayerCard = ({ player, onClick }) => {
             className="w-28 h-27 object-fit"
           />
           <div className="text-center">
-          <Text variant="para" className="font-bold text-xl text-gray-800">
+          <Text variant="para" className="font-bold text-xl text-yellow-400">
             {player.Name}
           </Text>
         </div>
@@ -58,8 +58,8 @@ const PlayerCard = ({ player, onClick }) => {
 
 const Stat = ({ label, value }) => (
   <div className="flex flex-col justify-center items-center">
-    <Text className="text-gray-800 text-sm">{label}</Text>
-    <Text className="text-gray-800 font-semibold">{value}</Text>
+    <Text className="text-yellow-400 text-sm">{label}</Text>
+    <Text className="text-yellow-400 font-semibold">{value}</Text>
   </div>
 );
 
