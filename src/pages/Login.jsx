@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Mail } from "lucide-react";
+import { Mail, LockKeyhole } from "lucide-react";
 import { Text } from "../components/ui/Text";
 import { Input } from "../components/ui/Input";
 import { PasswordInput } from "../components/ui/Password";
