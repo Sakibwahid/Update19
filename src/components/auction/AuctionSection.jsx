@@ -24,17 +24,14 @@ const AuctionSection = () => {
         {currentPlayerLoading ? (
           <p className="text-center text-gray-400">Loading...</p>
         ) : currentPlayer ? (
-          <div className="flex col-span-2 justify-center">
+          <div className="flex col-span-2 h-full items-center justify-center">
             <PlayerCard player={currentPlayer} />
           </div>
         ) : (
           <p className="text-center text-gray-500">No player in auction yet</p>
         )}
       </div>
-      <div className="lg:col-span-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-xl p-4 overflow-y-scroll">
-        <h2 className="text-xl font-semibold mb-4 text-center">
-          Browse Players
-        </h2>
+      <div className="lg:col-span-2 backdrop-blur-xl bg-white/5 rounded-xl p-4 overflow-y-scroll">
         <PlayerFilter />
       </div>
     </div>

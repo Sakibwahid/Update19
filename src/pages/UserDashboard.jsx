@@ -9,7 +9,6 @@ import { Anchor } from "../components/ui/Anchor";
 
 const UserDashboard = () => {
   const [userData, setUserData] = useState(null);
-  const [showAuction, setShowAuction] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,60 +34,66 @@ const UserDashboard = () => {
     fetchUserData();
   }, []);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/login");
-  };
+
 
   if (!userData) {
     return <div className="p-6 text-white">Loading...</div>;
   }
+return (
+  <div className="min-h-screen text-white flex justify-center px-4 py-10">
+    <div className="w-full max-w-4xl space-y-8">
 
-  return (
-    <div className="min-h-screen p-6 bg-gray-900 text-white flex flex-col items-center">
-      {/* USER INTRO */}
-      <div className="w-full max-w-3xl backdrop-blur-xl bg-white/5 rounded-xl shadow-lg p-6 flex justify-between items-center mb-6">
+      {/* USER HEADER */}
+      <div className="relative backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-lg">
         <div>
-          <h1 className="text-2xl font-semibold">{userData.username}</h1>
-          <p className="text-gray-300">Team: {userData.teamName}</p>
+          <h1 className="text-4xl font-semibold tracking-tight">
+            {userData.username}
+          </h1>
+          <p className="text-gray-300 mt-1">
+            Team: <span className="text-white">{userData.teamName}</span>
+          </p>
+
+          <p className="text-sm text-gray-400 mt-3 max-w-md">
+            Welcome back. You can enter the live auction or manage your activities
+            from here.
+          </p>
         </div>
-        <Button
-          variant="primary"
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg"
-          onClick={handleLogout}
-        >
-          Logout
-        </Button>
+
       </div>
 
-      {/* ACTION BOX */}
-      <div className="w-full max-w-3xl backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl shadow-lg p-6 flex flex-col gap-4">
-        <h2 className="text-xl font-semibold text-center mb-4">
+      {/* ACTION PANEL */}
+      <div className="relative backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6 md:p-8 shadow-lg">
+        <h2 className="text-xl font-semibold text-center mb-6">
           What would you like to do?
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <Anchor to="/auction">
-          <Button
-            variant="secondary"
-            className="w-full py-4 border border-white/30 rounded-lg hover:bg-white/5"
-          >
-            Enter Auction
-          </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Anchor to="/auction">
+            <div className="group cursor-pointer  border border-[#41FFEE] rounded-xl p-6 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">
+                Enter Auction
+              </h3>
+              <p className="text-sm text-gray-300">
+                Browse players, view live auctions, and place bids.
+              </p>
+            </div>
           </Anchor>
 
-          {/* Placeholder for future option */}
-          <Button
-            variant="secondary"
-            className="w-full py-4 border border-white/30 rounded-lg hover:bg-white/5"
-            disabled
-          >
-            Coming Soon
-          </Button>
+          {/* FUTURE OPTION */}
+          <div className="border border-white/80 rounded-xl p-6 text-center opacity-50 cursor-not-allowed">
+            <h3 className="text-lg font-semibold mb-2">
+              Coming Soon
+            </h3>
+            <p className="text-sm text-gray-500">
+              Additional features will be available here.
+            </p>
+          </div>
         </div>
       </div>
+
     </div>
-  );
+  </div>
+);
 };
 
 export default UserDashboard;

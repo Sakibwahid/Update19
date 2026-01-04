@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { Button } from "../ui/Button";
+import { Text } from "../ui/Text";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import PlayerList from "./PlayerList";
+import PlayerList from "../player/PLayerList";
 
 const categories = [
   "",
@@ -78,26 +79,30 @@ const PlayerFilter = () => {
   };
 
   return (
-    <div className="p-4 h-full">
+    <div className="h-full">
       {/* FILTERS */}
-      <div className="flex gap-4 mb-6">
-        <div>
-          <label className="block mb-1 font-medium">Category</label>
-          <select
-            value={category}
-            onChange={(e) => updateParam("category", e.target.value)}
-            className="border px-3 py-2 rounded w-40"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-2 mb-2">
+        <div className="flex justify-between mt-2">
+          <Text className=" text-2xl text-white font-semibold mb-1">Filter By:</Text>
+          <Button variant="filled" onClick={toggleSort}>Sort</Button>
         </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Max Overall</label>
+        <div className="flex gap-2">
+          <div className="">
+            <label className="block mb-1 font-medium">Category</label>
+            <select
+              value={category}
+              onChange={(e) => updateParam("category", e.target.value)}
+              className="border text-white px-3 py-2 rounded w-40"
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+            <div>
+             <label className="block mb-1 font-medium">Max Overall</label>
           <select
             value={maxOverall}
             onChange={(e) => updateParam("overall", e.target.value)}
@@ -109,11 +114,9 @@ const PlayerFilter = () => {
               </option>
             ))}
           </select>
+            </div>
         </div>
-
-        <Button variant="primary" onClick={toggleSort}>
-          Sort: {sortHighToLow ? "High → Low" : "Low → High"}
-        </Button>
+       
       </div>
 
       {/* PLAYER LIST */}
