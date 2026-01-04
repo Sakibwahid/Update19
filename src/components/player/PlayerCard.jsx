@@ -5,7 +5,7 @@ const PlayerCard = ({ player, onClick }) => {
   return (
     <div
       onClick={() => onClick?.(player)}
-      className="w-full h-full flex flex-col justify-center items-center bg-no-repeat  text-black cursor-pointer"
+      className="w-full h-full flex flex-col justify-center items-center bg-no-repeat  cursor-pointer"
       style={{
         backgroundImage: `url(/Card.png)`,
         backgroundSize: "contain",
@@ -14,13 +14,13 @@ const PlayerCard = ({ player, onClick }) => {
         height: "320px",
       }}
     >
-      <div className="h-full w-full flex flex-col gap-1">
+      <div className="h-full w-full flex flex-col text-amber-700 gap-1">
         {/* Top section */}
         <div className="flex justify-between items-center px-8 mt-10">
-          <Text variant="para" className="font-bold text-2xl text-yellow-400 p-2">
+          <Text variant="para" className="font-bold text-2xl p-2">
             {player.Overall}
           </Text>
-          <Text variant="para" className="font-semibold text-yellow-400">
+          <Text variant="para" className="font-semibold ">
             {player.Position}
           </Text>
         </div>
@@ -33,7 +33,7 @@ const PlayerCard = ({ player, onClick }) => {
             className="w-28 h-27 object-fit"
           />
           <div className="text-center">
-          <Text variant="para" className="font-bold text-xl text-yellow-400">
+          <Text variant="para" className="font-bold text-xl ">
             {player.Name}
           </Text>
         </div>
@@ -58,8 +58,8 @@ const PlayerCard = ({ player, onClick }) => {
 
 const Stat = ({ label, value }) => (
   <div className="flex flex-col justify-center items-center">
-    <Text className="text-yellow-400 text-sm">{label}</Text>
-    <Text className="text-yellow-400 font-semibold">{value}</Text>
+    <Text className=" text-sm">{label}</Text>
+    <Text className=" font-semibold">{value}</Text>
   </div>
 );
 
