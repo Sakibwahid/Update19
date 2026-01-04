@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
-import { Text } from "../ui/Text";
 import { Button } from "../ui/Button";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import PlayerCard from "./PlayerCard";
+import PlayerList from "./PlayerList";
+
 const categories = [
   "",
   "GK",
@@ -79,6 +79,7 @@ const PlayerFilter = () => {
 
   return (
     <div className="p-4 h-full">
+      {/* FILTERS */}
       <div className="flex gap-4 mb-6">
         <div>
           <label className="block mb-1 font-medium">Category</label>
@@ -110,29 +111,19 @@ const PlayerFilter = () => {
           </select>
         </div>
 
-        <Button
-        variant="primary"
-          onClick={toggleSort}
-        >
+        <Button variant="primary" onClick={toggleSort}>
           Sort: {sortHighToLow ? "High → Low" : "Low → High"}
         </Button>
       </div>
 
-      {loading ? (
-        <p>Loading players...</p>
-      ) : players.length === 0 ? (
-        <p>No players found. Select Category</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2  gap-4">
-          {players.map((player) => (
-            <PlayerCard
-              key={player.ID}
-              player={player}
-              onClick={openPlayerDetails}
-            />
-          ))}
-        </div>
-      )}
+      {/* PLAYER LIST */}
+      <div className="w-full h-full flex justify-center items-center">
+        <PlayerList
+          players={players}
+          loading={loading}
+          onPlayerClick={openPlayerDetails}
+        />
+      </div>
     </div>
   );
 };

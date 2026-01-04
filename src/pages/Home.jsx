@@ -1,16 +1,22 @@
 import { Button } from "../components/ui/Button";
+import { Text } from "../components/ui/Text";
 import { Anchor } from "../components/ui/Anchor";
 const Home = () => {
   return (
-    <div className="h-screen flex flex-col gap-4 justify-center items-center">
-      <h1>Welcome to the Home Page</h1>
-      <p>This is the main landing page of the application.</p>
-      <Button variant="filled">
-        <Anchor to="/login" className="text-indigo-300 hover:text-indigo-400">
-          Log in
-        </Anchor>
-      </Button>
-    </div>
+  <div className='md:h-full p-2 relative flex flex-col justify-center items-center'>
+            <div className='flex flex-col justify-center items-center gap-6'> 
+                <Text variant='heading' className='font-[orbitron] text-white text-center'>
+                    Enjoy your FIFA like never before
+                </Text>
+                <Text variant='subheading' className='font-[rajdhani] text-white font-normal'>
+                    Bid for your favourtie
+                </Text>
+                <div className='mt-4'>
+                    <Button size='md'> <Anchor to="/Login" >Login</Anchor></Button>
+                </div>
+
+            </div>
+        </div>
   );
 };
 export default Home;

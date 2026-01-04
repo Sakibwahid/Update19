@@ -35,11 +35,6 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    if (password.length < 6) {
-      setLengthError(true);
-      return;
-    }
-
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // AuthContext handles state + redirect
@@ -60,7 +55,7 @@ const Login = () => {
     <div className="p-2 min-h-screen flex justify-center items-center">
       <div
         className="w-full max-w-md flex flex-col gap-6 justify-center items-center
-        backdrop-blur-xl bg-black border border-white/20 shadow-lg
+        backdrop-blur-xl bg-black/10  border border-white/20 shadow-lg
         rounded-2xl px-6 py-10"
       >
         {/* Title */}
@@ -73,7 +68,7 @@ const Login = () => {
           </Text>
         </div>
 
-        {error && <Text className="text-red-500 text-sm">{error}</Text>}
+        {error && <Text className="text-red-500 text-lg font-bold">{error}</Text>}
 
         {/* Form */}
         <form className="w-[80%] flex flex-col gap-5" onSubmit={handleSubmit}>
@@ -112,13 +107,13 @@ const Login = () => {
           >
             Sign In
           </Button>
-          <Text className="mt-4 text-gray-300 text-sm text-center">
+          <Text className="mt-4 text-gray-300 text-sm  text-center">
             Don’t have an account?{" "}
             <Anchor
               to="/signup"
-              className="text-indigo-300 hover:text-indigo-400"
+  
             >
-              Sign up
+             <Text className="font-bold text-xl text-sky-300"> Sign Up </Text>
             </Anchor>
           </Text>
         </form>

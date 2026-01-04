@@ -5,19 +5,19 @@ const PlayerCard = ({ player, onClick }) => {
   return (
     <div
       onClick={() => onClick?.(player)}
-      className="relative flex flex-col bg-no-repeat items-center text-black p-6 cursor-pointer"
+      className="w-full h-full flex flex-col justify-center items-center bg-no-repeat  text-black cursor-pointer"
       style={{
         backgroundImage: `url(/Card.png)`,
         backgroundSize: "contain",
         backgroundPosition: "center",
-        width: "250px",
-        height: "350px",
+        width: "220px",
+        height: "320px",
       }}
     >
-      <div className="h-full w-full flex flex-col">
+      <div className="h-full w-full flex flex-col gap-1">
         {/* Top section */}
-        <div className="flex justify-between items-center pt-4 px-4 mt-2">
-          <Text variant="para" className="font-bold text-2xl text-yellow-900">
+        <div className="flex justify-between items-center px-8 mt-10">
+          <Text variant="para" className="font-bold text-2xl text-yellow-900 p-2">
             {player.Overall}
           </Text>
           <Text variant="para" className="font-semibold text-yellow-900">
@@ -26,23 +26,24 @@ const PlayerCard = ({ player, onClick }) => {
         </div>
 
         {/* Player image */}
-        <div className="w-full h-32 flex justify-center items-center">
+        <div className="w-full h-32 flex flex-col justify-center items-center">
           <img
             src={`/player_photos/${player.ID}.png`}
             alt={player.Name}
-            className="w-32 h-38 object-cover"
+            className="w-28 h-27 object-fit"
           />
-        </div>
-
-        {/* Name */}
-        <div className="text-center mt-2">
+          <div className="text-center">
           <Text variant="para" className="font-bold text-xl text-yellow-900">
             {player.Name}
           </Text>
         </div>
+        </div>
+
+        {/* Name */}
+        
 
         {/* Stats */}
-        <div className="flex gap-2 justify-center items-center mt-1">
+        <div className="flex gap-[5px] justify-center items-center">
           <Stat label="PAC" value={player.Acceleration} />
           <Stat label="SHO" value={player.ShotPower} />
           <Stat label="PAS" value={player.ShortPassing} />
