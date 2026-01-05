@@ -21,8 +21,8 @@ export function Text({ variant = "para", className, children, ...props }) {
     const basestyles = ["inline-block"]
     const variants = {
         heading: "text-4xl md:text-5xl text-white font-semibold font-[orbitron]",
-        subheading: "text-xl md:text-2xl text-white  font-[rajdhani]",
-        para: "text-md text-gray-400 font-[rajdhani]"
+        subheading: "text-xl md:text-2xl text-white font-[rajdhani]",
+        para: "text-md text-gray-300 font-[rajdhani]"
     };
     const classes = twMerge(clsx(basestyles, variants[variant]), className);
     return (

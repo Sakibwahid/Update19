@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import PlayerDetails from "./components/player/PlayerDetails";
 import { Navbar } from "./components/ui/Navbar";
 import AuctionSection from "./components/auction/AuctionSection";
+import AdminAuctionControl from "./components/auction/AdminAuctionControl";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/player-details" element={<PlayerDetails />} />
             <Route path="/auction" element={<AuctionSection />} />
+            <Route path="/admin/auction" element={<AdminAuctionControl />} />
           </Routes>
           </div>
         </div>
