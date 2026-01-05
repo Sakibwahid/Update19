@@ -14,13 +14,13 @@ const PlayerCard = ({ player, onClick }) => {
         height: "320px",
       }}
     >
-      <div className="h-full w-full flex flex-col text-amber-700 gap-1">
+      <div className="h-full w-full flex flex-col gap-1">
         {/* Top section */}
         <div className="flex justify-between items-center px-8 mt-10">
-          <Text variant="para" className="font-bold text-2xl p-2">
+          <Text variant="para" className="text-gray-700 font-bold text-2xl p-2">
             {player.Overall}
           </Text>
-          <Text variant="para" className="font-semibold ">
+          <Text variant="para" className="text-gray-700 font-semibold ">
             {player.Position}
           </Text>
         </div>
@@ -33,7 +33,7 @@ const PlayerCard = ({ player, onClick }) => {
             className="w-28 h-27 object-fit"
           />
           <div className="text-center">
-          <Text variant="para" className="font-bold text-xl ">
+          <Text variant="para" className="text-gray-600 font-bold text-xl ">
             {player.Name}
           </Text>
         </div>
@@ -43,7 +43,7 @@ const PlayerCard = ({ player, onClick }) => {
         
 
         {/* Stats */}
-        <div className="flex gap-[5px] justify-center items-center">
+        <div className="text-gray-00 flex gap-[5px] justify-center items-center">
           <Stat label="PAC" value={player.Acceleration} />
           <Stat label="SHO" value={player.ShotPower} />
           <Stat label="PAS" value={player.ShortPassing} />
@@ -58,8 +58,8 @@ const PlayerCard = ({ player, onClick }) => {
 
 const Stat = ({ label, value }) => (
   <div className="flex flex-col justify-center items-center">
-    <Text className=" text-sm">{label}</Text>
-    <Text className=" font-semibold">{value}</Text>
+    <Text className="text-gray-900 text-sm">{label}</Text>
+    <Text className="text-gray-600 font-semibold">{value}</Text>
   </div>
 );
 

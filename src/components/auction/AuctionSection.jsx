@@ -11,7 +11,7 @@ const AuctionSection = () => {
   return (
     <div className="h-screen text-white grid grid-cols-1 lg:grid-cols-3 gap-3 p-2">
       {/* CURRENT AUCTION PLAYER — Right */}
-      <div className="lg:col-span-1 grid grid-cols-3 text-center justify-center items-start backdrop-blur-xl bg-white/5 border border-blue-300 rounded-xl">
+      <div className="lg:col-span-1 grid grid-cols-3 text-center justify-center items-start backdrop-blur-md bg-white/2 border border-blue-300 rounded-xl">
         <div className="flex h-full col-span-1 justify-center items-center">
         <Text
           variant="subheading"
@@ -31,7 +31,7 @@ const AuctionSection = () => {
           <p className="text-center text-gray-500">No player in auction yet</p>
         )}
       </div>
-      <div className="lg:col-span-2 backdrop-blur-xl bg-white/5 rounded-xl p-4 overflow-y-scroll">
+      <div className="lg:col-span-2 backdrop-blur-md bg-white/2 border border-blue-300 rounded-xl p-4 overflow-y-scroll">
         <PlayerFilter />
       </div>
     </div>

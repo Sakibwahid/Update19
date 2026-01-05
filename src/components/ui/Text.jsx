@@ -26,8 +26,8 @@ export function Text({ variant = "para", className, children, ...props }) {
     };
     const classes = twMerge(clsx(basestyles, variants[variant]), className);
     return (
-      <p className={classes} {...props}>
+      <span className={classes} {...props}>
       {children}
-      </p>
+      </span>
         )
 }

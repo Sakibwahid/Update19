@@ -1,5 +1,5 @@
 import { Text } from "./Text";
-export function Stats({ className, width, label }) {
+export function Stats({ width, label }) {
     return (
       <div className={`w-full  mb-3` }>
         <div className="flex items-center justify-between text-white text-sm">

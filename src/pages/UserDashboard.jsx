@@ -44,7 +44,7 @@ return (
     <div className="w-full max-w-4xl space-y-8">
 
       {/* USER HEADER */}
-      <div className="relative backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-lg">
+      <div className="relative backdrop-blur-md bg-white/2 border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-lg">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight">
             {userData.username}
@@ -58,11 +58,10 @@ return (
             from here.
           </p>
         </div>
-
       </div>
 
       {/* ACTION PANEL */}
-      <div className="relative backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6 md:p-8 shadow-lg">
+      <div className="relative backdrop-blur-md bg-white/2 border border-white/20 rounded-2xl p-6 md:p-8 shadow-lg">
         <h2 className="text-xl font-semibold text-center mb-6">
           What would you like to do?
         </h2>

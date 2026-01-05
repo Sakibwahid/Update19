@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { auth, db, storage } from "../lib/firebase/config";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import PlayerFilter from "../components/player/PlayerFilter";
 import AdminAuctionControl from "../components/auction/AdminAuctionControl";
 
 const AdminDashboard = () => {

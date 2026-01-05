@@ -3,10 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase/config';
 import { getUserData } from '../lib/firebase/auth';
 
-
 const AuthContext = createContext();
-
-
 
 export const AuthProvider = ({ children }) => {
   // State to store user authentication status
@@ -19,21 +16,16 @@ export const AuthProvider = ({ children }) => {
     // onAuthStateChanged runs whenever user logs in or out
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // User is logged in
-        console.log('✅ User logged in:', firebaseUser.email);
+    
         setUser(firebaseUser);
-        
+       
         // Fetch additional user data from Firestore
         const result = await getUserData(firebaseUser.uid);
         if (result.success) {
-          console.log('✅ User data loaded:', result.data);
           setUserData(result.data);
-        } else {
-          console.error('❌ Failed to load user data:', result.error);
-        }
+        } 
       } else {
-        // User is logged out
-        console.log('❌ User logged out');
+
         setUser(null);
         setUserData(null);
       }
