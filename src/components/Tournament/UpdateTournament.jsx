@@ -149,7 +149,7 @@ const UpdateTournament = () => {
         </div>
 
         {/* RIGHT — STANDINGS */}
-        <div className="lg:col-span-2 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
+        <div className="flex justify-center  lg:col-span-2 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
           <TournamentStats />
         </div>
       </div>

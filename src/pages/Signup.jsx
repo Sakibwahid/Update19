@@ -87,13 +87,23 @@ const handleSignup = async (e) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-            <Input
-            type="text"
-            placeholder="Team Name"
-            icon={<Mail size={18} color="white" />}
+
+          <select
+            className="text-white w-full block border border-gray-400 px-4 py-2 rounded-lg bg-transparent appearance-none"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-          />
+          >
+            <option value="" disabled>Select Team Name</option>
+            <option value="FC Bayern Munich">FC Bayern Munich</option>
+            <option value="Manchester City F.C.">Manchester City F.C.</option>
+            <option value="Wolverhampton Wanderers F.C.">Wolverhampton Wanderers F.C.</option>
+            <option value="Liverpool FC">Liverpool FC</option>
+            <option value="Manchester United F.C.">Manchester United F.C.</option>
+            <option value="Chelsea F.C.">Chelsea F.C.</option>
+            <option value="Arsenal F.C.">Arsenal F.C.</option>
+            <option value="Real Madrid C.F.">Real Madrid C.F.</option>
+          </select>
+          
           <PasswordInput
             placeholder="Password"
             icon={<LockKeyhole size={18} color="white" />}
