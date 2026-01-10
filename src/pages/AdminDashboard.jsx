@@ -38,14 +38,16 @@ const AdminDashboard = () => {
             </Anchor>
 
             {/* VIEW TEAMS — PLACEHOLDER */}
-            <div className="border border-white/80 rounded-xl p-6 text-center opacity-50 cursor-not-allowed">
-              <h3 className="text-lg font-semibold mb-2">
-                View Teams
-              </h3>
-              <p className="text-sm text-gray-500">
-                Team overview will be available here.
-              </p>
-            </div>
+            <Anchor to="/admin/updatetournament">
+              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl p-6 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">
+                  Update Tournament
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Update team rankings and points after a tournament.
+                </p>
+              </div>
+            </Anchor>
 
           </div>
         </div>

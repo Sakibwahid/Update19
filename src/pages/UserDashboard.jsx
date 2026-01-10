@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
-import { signOut } from "firebase/auth";
 import { auth, db } from "../lib/firebase/config";
-import { Button } from "../components/ui/Button"; 
-import AuctionSection from "../components/auction/AuctionSection";
 import { Anchor } from "../components/ui/Anchor";
 
 const UserDashboard = () => {
@@ -79,14 +76,16 @@ return (
           </Anchor>
 
           {/* FUTURE OPTION */}
-          <div className="border border-white/80 rounded-xl p-6 text-center opacity-50 cursor-not-allowed">
-            <h3 className="text-lg font-semibold mb-2">
-              Coming Soon
-            </h3>
-            <p className="text-sm text-gray-500">
-              Additional features will be available here.
-            </p>
-          </div>
+          <Anchor to="/tournamentstats">
+            <div className="group cursor-pointer  border border-[#41FFEE] rounded-xl p-6 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">
+                Enter Auction
+              </h3>
+              <p className="text-sm text-gray-300">
+                Browse players, view live auctions, and place bids.
+              </p>
+            </div>
+          </Anchor>
         </div>
       </div>
 

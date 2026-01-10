@@ -10,6 +10,8 @@ import PlayerDetails from "./components/player/PlayerDetails";
 import { Navbar } from "./components/ui/Navbar";
 import AuctionSection from "./components/auction/AuctionSection";
 import AdminAuctionControl from "./components/auction/AdminAuctionControl";
+import UpdateTournament from "./components/Tournament/UpdateTournament";
+import TournamentStats from "./components/Tournament/TournamentStats";
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
             <Route path="/player-details" element={<PlayerDetails />} />
             <Route path="/auction" element={<AuctionSection />} />
             <Route path="/admin/auction" element={<AdminAuctionControl />} />
+            <Route path="/admin/updatetournament" element={<UpdateTournament />} />
+            <Route path="/tournamentstats" element={<TournamentStats />} />
           </Routes>
           </div>
         </div>
