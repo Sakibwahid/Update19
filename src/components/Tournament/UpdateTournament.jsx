@@ -5,7 +5,7 @@ import { Text } from "../ui/Text";
 import { Button } from "../ui/Button";
 import TournamentStats from "./TournamentStats";
 
-const TEAMS = ["Wolves", "Bayern", "City", "ManU", "Liverpool"];
+const TEAMS = ["Wolverhampton Wanderers F.C.", "FC Bayern Munich", "Manchester City F.C.", "Manchester United F.C.", "Liverpool F.C."];
 const POSITIONS = ["1st", "2nd", "3rd", "4th", "5th"];
 
 const UpdateTournament = () => {
@@ -125,7 +125,7 @@ const UpdateTournament = () => {
                   </option>
                   {POSITIONS.map((pos) => (
                     <option key={pos} value={pos}>
-                      {pos}
+                    {pos}
                     </option>
                   ))}
                 </select>
