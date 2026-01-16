@@ -12,6 +12,7 @@ import AdminAuctionControl from "./components/auction/AdminAuctionControl";
 import UpdateTournament from "./components/Tournament/UpdateTournament";
 import TournamentStats from "./components/Tournament/TournamentStats";
 import PlayerTableAssign from "./components/Squads/PlayerTableAssign";
+import DisplaySquad from "./components/Squads/DisplaySquad";
 function App() {
   return (
     <AuthProvider>
@@ -42,7 +43,8 @@ function App() {
                 element={<UpdateTournament />}
               />
               <Route path="/tournamentstats" element={<TournamentStats />} />{" "}
-              <Route path="/squadupdate" element={<PlayerTableAssign />} />{" "}  
+              <Route path="/squadupdate" element={<PlayerTableAssign />} />{" "}
+              <Route path="/user/squad" element={<DisplaySquad />} />{" "}  
             </Routes>{" "}
           </div>{" "}
         </div>{" "}

@@ -12,6 +12,7 @@ import { auth, db } from "../lib/firebase/config";
 import { Anchor } from "../components/ui/Anchor";
 import { Text } from "../components/ui/Text";
 import TournamentStats from "../components/Tournament/TournamentStats";
+import DisplaySquad from "../components/Squads/DisplaySquad";
 
 const UserDashboard = () => {
   const [userData, setUserData] = useState(null);
@@ -100,7 +101,7 @@ const UserDashboard = () => {
   if (!userData) return <div className="p-6 text-white">Loading user info...</div>;
 
   return (
-    <div className="min-h-screen text-white flex justify-center px-4 py-10">
+    <div className="min-h-screen w-full text-white flex justify-center px-4 py-10">
       <div className="w-full max-w-4xl space-y-8">
 
         {/* USER HEADER */}
@@ -138,22 +139,27 @@ const UserDashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Anchor to="/auction">
-              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl p-6 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
                 <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">Enter Auction</h3>
-                <p className="text-sm text-gray-300">Browse players, view live auctions, and place bids.</p>
               </div>
             </Anchor>
 
             <Anchor to="/tournamentstats">
-              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl p-6 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
                 <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">See Tournament Stats</h3>
-                <p className="text-sm text-gray-300">View the latest tournament standings and team points.</p>
+               
               </div>
             </Anchor>
+
+            <Anchor to="/user/squad">
+              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">See Your Squad</h3>
+              </div>
+            </Anchor>
+
           </div>
         </div>
 
-        {/* LIVE TOURNAMENT TABLE */}
         
       </div>
     </div>
