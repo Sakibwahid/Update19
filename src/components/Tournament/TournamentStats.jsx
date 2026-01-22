@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { Text } from "../ui/Text";
+import Loadin from "../ui/loadin";
 
 const TournamentStats = () => {
   const [teams, setTeams] = useState([]);
@@ -44,7 +45,7 @@ const TournamentStats = () => {
   }, []);
 
   if (loading) {
-    return <Text className="text-center">Loading standings...</Text>;
+    return  <Loadin>I think you are on top!</Loadin>
   }
 
   return (

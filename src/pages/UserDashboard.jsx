@@ -13,6 +13,7 @@ import { Anchor } from "../components/ui/Anchor";
 import { Text } from "../components/ui/Text";
 import TournamentStats from "../components/Tournament/TournamentStats";
 import DisplaySquad from "../components/Squads/DisplaySquad";
+import Loadin from "../components/ui/loadin"; 
 
 const UserDashboard = () => {
   const [userData, setUserData] = useState(null);
@@ -98,7 +99,7 @@ const UserDashboard = () => {
   const userRank = teams.findIndex((t) => t.name === teamNameShort) + 1;
   const userPoints = teams.find((t) => t.name === teamNameShort)?.totalPoints || 0;
 
-  if (!userData) return <div className="p-6 text-white">Loading user info...</div>;
+  if (!userData) return  <Loadin>Preparin your experience</Loadin>
 
   return (
     <div className="min-h-screen w-full text-white flex justify-center px-4 py-10">

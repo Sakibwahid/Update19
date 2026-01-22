@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase/config";
 import { useAuth } from "../context/AuthContext";
+import Loadin from "../components/ui/loadin";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -46,7 +47,7 @@ const Login = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
-        Checking authentication...
+        <Loadin>Loadin is fun</Loadin>
       </div>
     );
   }

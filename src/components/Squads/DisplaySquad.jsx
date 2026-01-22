@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase/config";
 import { Text } from "../ui/Text";
+import Loadin from "../ui/loadin";
 
 const POSITION_GROUPS = {
   GK: ["GK"],
@@ -129,7 +130,7 @@ const DisplaySquad = () => {
         Your Squad
       </Text>
 
-      {loading && <p className="text-sm text-gray-500">Loading squad...</p>}
+      {loading && <Loadin>Stars are loading...</Loadin>}
 
       <div className="flex items-center space-x-4">
         <Input
