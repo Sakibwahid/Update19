@@ -1,22 +1,33 @@
 import { useState } from "react";
-import { doc, updateDoc, increment,writeBatch } from "firebase/firestore";
+import {
+  doc,
+  increment,
+  writeBatch,
+  addDoc,
+  collection,
+  serverTimestamp,
+  getDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { Text } from "../ui/Text";
 import { Button } from "../ui/Button";
 import TournamentStats from "./TournamentStats";
 
-const TEAMS = ["Wolverhampton Wanderers F.C.", "FC Bayern Munich", "Manchester City F.C.", "Manchester United F.C.", "Liverpool F.C."];
+const TEAMS = [
+  "Wolverhampton Wanderers F.C.",
+  "FC Bayern Munich",
+  "Manchester City F.C.",
+  "Manchester United F.C.",
+  "Liverpool F.C.",
+];
+
 const POSITIONS = ["1st", "2nd", "3rd", "4th", "5th"];
 
 const UpdateTournament = () => {
   const [placements, setPlacements] = useState({});
 
-  const handleChange = (team, position) => {
-    setPlacements((prev) => ({
-      ...prev,
-      [team]: position,
-    }));
-  };
+  /* ================= HELPERS ================= */
 
   const getStatsUpdate = (position) => {
     switch (position) {
@@ -44,6 +55,15 @@ const UpdateTournament = () => {
     }
   };
 
+  const handleChange = (team, position) => {
+    setPlacements((prev) => ({
+      ...prev,
+      [team]: position,
+    }));
+  };
+
+  /* ================= SUBMIT ================= */
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -53,41 +73,69 @@ const UpdateTournament = () => {
     }
 
     try {
-      for (const team of TEAMS) {
-        const position = placements[team];
-        const updates = getStatsUpdate(position);
+      const batch = writeBatch(db);
 
-        const teamRef = doc(db, "teams", team);
-        await updateDoc(teamRef, updates);
+      /* 🔢 Get tournament number (start from 7) */
+      const counterRef = doc(db, "meta", "tournamentCounter");
+      const counterSnap = await getDoc(counterRef);
+
+      if (!counterSnap.exists()) {
+        alert("Tournament counter is missing in Firestore.");
+        return;
       }
 
-      alert("Tournament data updated successfully.");
+      const currentNo = counterSnap.data().current;
+      const nextTournamentNo = currentNo + 1;
+
+      /* 🏆 Update cumulative team stats */
+      TEAMS.forEach((team) => {
+        const updates = getStatsUpdate(placements[team]);
+        const teamRef = doc(db, "teams", team);
+        batch.update(teamRef, updates);
+      });
+
+      /* 📄 Save tournament result row */
+      await addDoc(collection(db, "tournamentResults"), {
+        tournamentNo: nextTournamentNo,
+        results: placements, // stored exactly as selected (1st, 2nd, etc.)
+        createdAt: serverTimestamp(),
+      });
+
+      /* ➕ Increment counter */
+      await updateDoc(counterRef, {
+        current: increment(1),
+      });
+
+      await batch.commit();
+
+      alert(`Tournament ${nextTournamentNo} submitted successfully.`);
       setPlacements({});
     } catch (error) {
-      console.error("Update failed:", error);
-      alert("Something went wrong while updating.");
+      console.error("Tournament submission failed:", error);
+      alert("Something went wrong while submitting the tournament.");
     }
   };
+
+  /* ================= RESET ================= */
+
   const handleResetAll = async () => {
     const confirmReset = window.confirm(
       "This will reset ALL tournament stats. Are you sure?"
     );
-
     if (!confirmReset) return;
 
     try {
       const batch = writeBatch(db);
 
-      for (const team of TEAMS) {
+      TEAMS.forEach((team) => {
         const teamRef = doc(db, "teams", team);
-
         batch.update(teamRef, {
           totalPoints: 0,
           firstCount: 0,
           secondCounts: 0,
           zeroCounts: 0,
         });
-      }
+      });
 
       await batch.commit();
       alert("All tournament records have been reset.");
@@ -96,6 +144,8 @@ const UpdateTournament = () => {
       alert("Failed to reset tournament data.");
     }
   };
+
+  /* ================= UI ================= */
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-2 md:px-6">
@@ -112,12 +162,12 @@ const UpdateTournament = () => {
                 key={team}
                 className="flex items-center justify-between gap-3"
               >
-                <Text className="text-lg font-medium">{team}</Text>
+                <Text className="text-sm font-medium">{team}</Text>
 
                 <select
                   value={placements[team] || ""}
                   onChange={(e) => handleChange(team, e.target.value)}
-                  className="min-w-30 bg-black/40 text-white px-3 py-2 rounded-lg border border-white/20 focus:ring-2 focus:ring-[#41FFEE] outline-none transition"
+                  className="min-w-[100px] bg-black/40 text-white px-3 py-2 rounded-lg border border-white/20 focus:ring-2 focus:ring-[#41FFEE] outline-none transition"
                   required
                 >
                   <option value="" disabled>
@@ -125,7 +175,7 @@ const UpdateTournament = () => {
                   </option>
                   {POSITIONS.map((pos) => (
                     <option key={pos} value={pos}>
-                    {pos}
+                      {pos}
                     </option>
                   ))}
                 </select>
@@ -138,6 +188,7 @@ const UpdateTournament = () => {
             >
               Submit Tournament
             </Button>
+
             <Button
               type="button"
               onClick={handleResetAll}
@@ -149,7 +200,7 @@ const UpdateTournament = () => {
         </div>
 
         {/* RIGHT — STANDINGS */}
-        <div className="flex justify-center  lg:col-span-2 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
+        <div className="lg:col-span-2 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
           <TournamentStats />
         </div>
       </div>

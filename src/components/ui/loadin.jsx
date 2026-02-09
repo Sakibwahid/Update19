@@ -1,4 +1,4 @@
-import LoadingPNG from "/public/football.png"; 
+import LoadingPNG from "/public/football.png";
 const Loadin = ({children}) =>{
 
     return(
