@@ -7,6 +7,9 @@ import { Text } from "../ui/Text";
 
 const AuctionSection = () => {
   const { currentPlayer, loading: currentPlayerLoading } = useCurrentPlayer();
+  
+  const checkSold= currentPlayer?.soldPrice;
+  console.log(currentPlayer);
 
   return (
     <div className="h-screen text-white grid grid-cols-1 lg:grid-cols-3 gap-3 p-2">
@@ -18,6 +21,7 @@ const AuctionSection = () => {
           className="text-3xl text-center m-4"
         >
             Current Auction Player
+            {currentPlayer?.soldPrice}
         
         </Text>
         </div>

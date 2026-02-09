@@ -46,9 +46,9 @@ function App() {
               <Route path="/squadupdate" element={<PlayerTableAssign />} />{" "}
               <Route path="/user/squad" element={<DisplaySquad />} />{" "}  
             </Routes>{" "}
-          </div>{" "}
-        </div>{" "}
-      </Router>{" "}
+          </div>
+        </div>
+      </Router>
     </AuthProvider>
   );
 }

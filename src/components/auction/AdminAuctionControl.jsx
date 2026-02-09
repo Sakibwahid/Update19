@@ -14,9 +14,17 @@ import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 
 const POSITIONS = [
-  "GK", "CB", "LB", "RB",
-  "CDM", "CM", "CAM",
-  "LW", "RW", "CF", "ST",
+  "GK",
+  "CB",
+  "LB",
+  "RB",
+  "CDM",
+  "CM",
+  "CAM",
+  "LW",
+  "RW",
+  "CF",
+  "ST",
 ];
 
 const STORAGE_KEY = "auction_state";
@@ -92,7 +100,7 @@ const AdminAuctionControl = () => {
         availablePositions,
         availablePlayers,
         selectedPosition,
-      })
+      }),
     );
   }, [availablePositions, availablePlayers, selectedPosition]);
 
@@ -146,16 +154,22 @@ const AdminAuctionControl = () => {
 
       if (getPlayersForPosition(selectedPosition).length === 1) {
         setAvailablePositions((prev) =>
-          prev.filter((p) => p !== selectedPosition)
+          prev.filter((p) => p !== selectedPosition),
         );
       }
 
-      await setDoc(doc(db, "currentPlayer", "active"), {
+      await setDoc(
+        doc(db, "currentPlayer", "active"),
+        {
+          ...randomPlayer,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setCurrentPlayer((prev) => ({
+        ...prev,
         ...randomPlayer,
-        updatedAt: serverTimestamp(),
-      });
-
-      setCurrentPlayer(randomPlayer);
+      }));
     } catch (err) {
       console.error("Choose player error:", err);
     } finally {
@@ -253,5 +267,3 @@ const AdminAuctionControl = () => {
 };
 
 export default AdminAuctionControl;
-
-
