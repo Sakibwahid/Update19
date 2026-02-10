@@ -158,6 +158,11 @@ const UserDashboard = () => {
               </div>
             </Anchor>
 
+            <Anchor to="/user/buildsquad">
+              <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
+                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">Build Squad</h3>
+              </div>
+            </Anchor>
           </div>
         </div>
 

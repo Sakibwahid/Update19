@@ -16,7 +16,6 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [lengthError, setLengthError] = useState(false);
 
   const navigate = useNavigate();
   const { user, userData, loading } = useAuth();
@@ -40,14 +39,26 @@ const Login = () => {
       await signInWithEmailAndPassword(auth, email, password);
       // AuthContext handles state + redirect
     } catch (err) {
-      setError("Invalid email or password");
+      switch (err.code) {
+        case "auth/user-not-found":
+          setError("No account found with this email");
+          break;
+        case "auth/wrong-password":
+          setError("Incorrect password");
+          break;
+        case "auth/too-many-requests":
+          setError("Too many attempts. Try again later");
+          break;
+        default:
+          setError("Something went wrong. Try again");
+      }
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
-        <Loadin>Loadin is fun</Loadin>
+        <Loadin>Loading is fun</Loadin>
       </div>
     );
   }
@@ -69,7 +80,9 @@ const Login = () => {
           </Text>
         </div>
 
-        {error && <Text className="text-red-500 text-lg font-bold">{error}</Text>}
+        {error && (
+          <Text className="text-red-500 text-lg font-bold">{error}</Text>
+        )}
 
         {/* Form */}
         <form className="w-[80%] flex flex-col gap-5" onSubmit={handleSubmit}>
@@ -84,11 +97,8 @@ const Login = () => {
           <PasswordInput
             placeholder="Enter your password"
             icon={<LockKeyhole size={18} color="white" />}
-            error={lengthError && "Password must be at least 6 characters"}
-            value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              setLengthError(e.target.value.length < 6);
             }}
           />
 
@@ -110,11 +120,8 @@ const Login = () => {
           </Button>
           <Text className="mt-4 text-gray-300 text-sm  text-center">
             Don’t have an account?{" "}
-            <Anchor
-              to="/signup"
-  
-            >
-             <Text className="font-bold text-xl text-sky-300"> Sign Up </Text>
+            <Anchor to="/signup">
+              <Text className="font-bold text-xl text-sky-300"> Sign Up </Text>
             </Anchor>
           </Text>
         </form>

@@ -1,51 +1,110 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { Navbar } from "./components/ui/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PlayerDetails from "./components/player/PlayerDetails";
-import { Navbar } from "./components/ui/Navbar";
 import AuctionSection from "./components/auction/AuctionSection";
 import AdminAuctionControl from "./components/auction/AdminAuctionControl";
 import UpdateTournament from "./components/Tournament/UpdateTournament";
 import TournamentStats from "./components/Tournament/TournamentStats";
 import PlayerTableAssign from "./components/Squads/PlayerTableAssign";
 import DisplaySquad from "./components/Squads/DisplaySquad";
+import SquadBuilder from "./pages/SquadBuilder";
+import ProtectedRoute from "./components/layout/ProtectedRoute";
 function App() {
   return (
     <AuthProvider>
-      {" "}
       <Router>
-        {" "}
         <div className="flex flex-col md:flex-row md:justify-between min-h-screen bg-linear-to-t from-[#1D5AD0] to-[#0c368a]">
-          {" "}
-          <div className='fixed inset-0 bg-[url("/png.png")] bg-no-repeat bg-cover opacity-60'></div>{" "}
+          <div className='fixed inset-0 bg-[url("/png.png")] bg-no-repeat bg-cover opacity-60'></div>
           <div>
-            {" "}
-            <Navbar></Navbar>{" "}
-          </div>{" "}
+            <Navbar></Navbar>
+          </div>
           <div className="flex-1 relative h-screen md:block flex justify-center items-center overflow-y-scroll">
-            {" "}
             <Routes>
-              {" "}
-              <Route path="/" element={<Home />} />{" "}
-              <Route path="/login" element={<Login />} />{" "}
-              <Route path="/signup" element={<Signup />} />{" "}
-              <Route path="/user" element={<UserDashboard />} />{" "}
-              <Route path="/admin" element={<AdminDashboard />} />{" "}
-              <Route path="/player-details" element={<PlayerDetails />} />{" "}
-              <Route path="/auction" element={<AuctionSection />} />{" "}
-              <Route path="/admin/auction" element={<AdminAuctionControl />} />{" "}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+
+              <Route
+                path="/user"
+                element={
+                  <ProtectedRoute role={["user"]}>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute role={["admin"]}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+                <Route
+                path="/squadupdate"
+                element={
+                  <ProtectedRoute roles={["admin"]}>
+                    <PlayerTableAssign />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/auction"
+                element={
+                  <ProtectedRoute roles={["admin"]}>
+                    <AdminAuctionControl />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/admin/updatetournament"
-                element={<UpdateTournament />}
+                element={
+                  <ProtectedRoute roles={["admin"]}>
+                    <UpdateTournament />
+                  </ProtectedRoute>
+                }
               />
-              <Route path="/tournamentstats" element={<TournamentStats />} />{" "}
-              <Route path="/squadupdate" element={<PlayerTableAssign />} />{" "}
-              <Route path="/user/squad" element={<DisplaySquad />} />{" "}  
-            </Routes>{" "}
+              <Route
+                path="/player-details"
+                element={
+                  <ProtectedRoute roles={["user", "admin"]}>
+                    <PlayerDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/auction" element={<AuctionSection />} />
+              
+              <Route
+                path="/tournamentstats"
+                element={
+                  <ProtectedRoute roles={["user", "admin"]}>
+                    <TournamentStats />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/user/squad"
+                element={
+                  <ProtectedRoute roles={["user", "admin"]}>
+                    <DisplaySquad />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/user/buildsquad"
+                element={
+                  <ProtectedRoute roles={["user", "admin"]}>
+                    <SquadBuilder />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
           </div>
         </div>
       </Router>
