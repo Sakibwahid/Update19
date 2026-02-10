@@ -46,16 +46,16 @@ const TournamentStats = () => {
   }, []);
 
   if (loading) {
-    return <Loadin>I think you are on top!</Loadin>;
+    return <Loadin>Where you at!</Loadin>;
   }
 
   return (
-    <div className="w-full mx-2 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
+    <div className="w-full mx-2 rounded-2xl backdrop-blur-mdshadow-lg p-5 md:p-6">
       <Text variant="subheading" className="text-xl font-semibold mb-4">
         Tournament Standings
       </Text>
 
-      <div className="overflow-x-auto rounded-lg">
+      <div className="overflow-x-auto rounded-lg flex flex-col justify-center">
         <table className="w-full text-center border-collapse">
           <thead className="bg-white/5">
             <tr className="border-b border-white/20 text-white/80 text-sm uppercase">
