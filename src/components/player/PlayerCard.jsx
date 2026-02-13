@@ -1,5 +1,7 @@
 import React from "react";
 import { Text } from "../ui/Text";
+import CardImage from "/public/Card.png";
+
 
 const PlayerCard = ({ player, onClick }) => {
   return (
@@ -7,7 +9,7 @@ const PlayerCard = ({ player, onClick }) => {
       onClick={() => onClick?.(player)}
       className="w-full h-full flex flex-col justify-center items-center bg-no-repeat  cursor-pointer"
       style={{
-        backgroundImage: `url(/Card.png)`,
+       backgroundImage: `url(${CardImage})`,
         backgroundSize: "contain",
         backgroundPosition: "center",
         width: "220px",

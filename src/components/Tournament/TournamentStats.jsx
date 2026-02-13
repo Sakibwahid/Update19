@@ -50,7 +50,7 @@ const TournamentStats = () => {
   }
 
   return (
-    <div className="w-full mx-2 rounded-2xl backdrop-blur-mdshadow-lg p-5 md:p-6">
+    <div className="w-full mx-2 rounded-2xl backdrop-blur-md shadow-lg p-5 md:p-6">
       <Text variant="subheading" className="text-xl font-semibold mb-4">
         Tournament Standings
       </Text>

@@ -13,7 +13,7 @@ import UpdateTournament from "./components/Tournament/UpdateTournament";
 import TournamentStats from "./components/Tournament/TournamentStats";
 import PlayerTableAssign from "./components/Squads/PlayerTableAssign";
 import DisplaySquad from "./components/Squads/DisplaySquad";
-import SquadBuilder from "./pages/SquadBuilder";
+import SquadBuilder from "./components/Squads/SquadBuilder";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 function App() {
   return (
