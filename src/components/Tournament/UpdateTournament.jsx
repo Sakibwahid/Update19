@@ -3,11 +3,9 @@ import {
   doc,
   increment,
   writeBatch,
-  addDoc,
   collection,
   serverTimestamp,
   getDoc,
-  updateDoc,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { Text } from "../ui/Text";
@@ -44,6 +42,7 @@ const UpdateTournament = () => {
       case "3rd":
         return {
           totalPoints: increment(1),
+          thirdCount: increment(1), // added for consistency
         };
       case "4th":
       case "5th":
@@ -67,42 +66,53 @@ const UpdateTournament = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // ✅ Ensure all teams selected
     if (Object.keys(placements).length !== TEAMS.length) {
       alert("Please assign positions to all teams.");
+      return;
+    }
+
+    // ✅ Ensure unique positions
+    const selectedPositions = Object.values(placements);
+    if (new Set(selectedPositions).size !== POSITIONS.length) {
+      alert("Each position must be unique.");
       return;
     }
 
     try {
       const batch = writeBatch(db);
 
-      /* 🔢 Get tournament number (start from 7) */
+      /* 🔢 Get tournament number */
       const counterRef = doc(db, "meta", "tournamentCounter");
       const counterSnap = await getDoc(counterRef);
 
       if (!counterSnap.exists()) {
-        alert("Tournament counter is missing in Firestore.");
+        alert("Tournament counter is missing.");
         return;
       }
 
       const currentNo = counterSnap.data().current;
       const nextTournamentNo = currentNo + 1;
 
-      /* 🏆 Update cumulative team stats */
+      /* 🏆 Update teams safely */
       TEAMS.forEach((team) => {
         const updates = getStatsUpdate(placements[team]);
         const teamRef = doc(db, "teams", team);
-        batch.update(teamRef, updates);
+
+        // SAFE WRITE
+        batch.set(teamRef, updates, { merge: true });
       });
 
-      /* 📄 Save tournament result row */
-      await addDoc(collection(db, "tournamentResults"), {
+      /* 📄 Save tournament result */
+      const resultRef = doc(collection(db, "tournamentResults"));
+      batch.set(resultRef, {
         tournamentNo: nextTournamentNo,
-        results: placements, // stored exactly as selected (1st, 2nd, etc.)
+        results: placements,
         createdAt: serverTimestamp(),
       });
 
       /* ➕ Increment counter */
-      await updateDoc(counterRef, {
+      batch.update(counterRef, {
         current: increment(1),
       });
 
@@ -111,8 +121,8 @@ const UpdateTournament = () => {
       alert(`Tournament ${nextTournamentNo} submitted successfully.`);
       setPlacements({});
     } catch (error) {
-      console.error("Tournament submission failed:", error);
-      alert("Something went wrong while submitting the tournament.");
+      console.error("Submission failed:", error);
+      alert(error.message);
     }
   };
 
@@ -129,15 +139,23 @@ const UpdateTournament = () => {
 
       TEAMS.forEach((team) => {
         const teamRef = doc(db, "teams", team);
-        batch.update(teamRef, {
-          totalPoints: 0,
-          firstCount: 0,
-          secondCounts: 0,
-          zeroCounts: 0,
-        });
+
+        // SAFE RESET
+        batch.set(
+          teamRef,
+          {
+            totalPoints: 0,
+            firstCount: 0,
+            secondCounts: 0,
+            thirdCount: 0,
+            zeroCounts: 0,
+          },
+          { merge: true }
+        );
       });
 
       await batch.commit();
+
       alert("All tournament records have been reset.");
     } catch (error) {
       console.error("Reset failed:", error);
@@ -150,7 +168,8 @@ const UpdateTournament = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-2 md:px-6">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* LEFT — UPDATE FORM */}
+        
+        {/* LEFT — FORM */}
         <div className="lg:col-span-1 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
           <Text className="text-2xl font-semibold mb-5 text-center">
             Update Tournament
@@ -158,10 +177,7 @@ const UpdateTournament = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {TEAMS.map((team) => (
-              <div
-                key={team}
-                className="flex items-center justify-between gap-3"
-              >
+              <div key={team} className="flex items-center justify-between gap-3">
                 <Text className="text-sm font-medium">{team}</Text>
 
                 <select
@@ -199,7 +215,7 @@ const UpdateTournament = () => {
           </form>
         </div>
 
-        {/* RIGHT — STANDINGS */}
+        {/* RIGHT — STATS */}
         <div className="lg:col-span-2 flex flex-col justify-center items-center rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-3 md:p-6">
           <TournamentStats />
         </div>
