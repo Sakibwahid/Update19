@@ -4,6 +4,7 @@ import {
   getDocs,
   doc,
   setDoc,
+  updateDoc,
   serverTimestamp,
   getDoc,
 } from "firebase/firestore";
@@ -12,164 +13,124 @@ import { useNavigate } from "react-router-dom";
 import PlayerCard from "../player/PlayerCard";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
+import PlayerCardDemo from "../player/PlayerCardDemo";
 
 const POSITIONS = [
-  "GK",
-  "CB",
-  "LB",
-  "RB",
-  "CDM",
-  "CM",
-  "CAM",
-  "LW",
-  "RW",
-  "CF",
-  "ST",
+  "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "CF", "ST",
 ];
 
-const STORAGE_KEY = "auction_state";
+const TEAMS = [
+  { id: "wolves01", name: "Wolves", color: "#FDB913" },
+  { id: "bayern05", name: "Bayern Munich", color: "#DC052D" },
+  { id: "city04", name: "Manchester City", color: "#6CABDD" },
+  { id: "united03", name: "Manchester United", color: "#DA291C" },
+  { id: "liverpool01", name: "Liverpool", color: "#C8102E" },
+];
+
+const STORAGE_KEY = "auction_state_v2"; // bumped version to bust stale localStorage
 
 const AdminAuctionControl = () => {
   const navigate = useNavigate();
 
-  const [availablePositions, setAvailablePositions] = useState([]);
   const [availablePlayers, setAvailablePlayers] = useState({});
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  /* ================= FETCH CURRENT PLAYER ================= */
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [prices, setPrices] = useState({});
+  const [seasonId, setSeasonId] = useState("S2");
+  const [soldFlash, setSoldFlash] = useState(null);
 
   const fetchCurrentPlayer = async () => {
     try {
       const ref = doc(db, "currentPlayer", "active");
       const snap = await getDoc(ref);
-      if (snap.exists()) {
-        setCurrentPlayer(snap.data());
-      }
+      if (snap.exists()) setCurrentPlayer(snap.data());
     } catch (err) {
       console.error("Fetch current player error:", err);
     }
   };
 
-  /* ================= FETCH PLAYERS ================= */
-
   const fetchAllPlayers = async () => {
     try {
       const snapshot = await getDocs(collection(db, "players"));
       const grouped = {};
-
-      snapshot.docs.forEach((doc) => {
-        const player = doc.data();
+      snapshot.docs.forEach((d) => {
+        const player = d.data();
         if (!grouped[player.Position]) grouped[player.Position] = [];
         grouped[player.Position].push(player);
       });
-
       setAvailablePlayers(grouped);
-      setAvailablePositions([...POSITIONS]);
     } catch (err) {
       console.error("Fetch players error:", err);
     }
   };
 
-  /* ================= RESTORE FROM LOCALSTORAGE ================= */
-
   useEffect(() => {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-
-    if (savedState) {
-      const parsed = JSON.parse(savedState);
-      setAvailablePositions(parsed.availablePositions);
-      setAvailablePlayers(parsed.availablePlayers);
-      setSelectedPosition(parsed.selectedPosition);
-    } else {
+    try {
+      const savedState = localStorage.getItem(STORAGE_KEY);
+      if (savedState) {
+        const parsed = JSON.parse(savedState);
+        if (parsed.availablePlayers) setAvailablePlayers(parsed.availablePlayers);
+        if (parsed.selectedPosition) setSelectedPosition(parsed.selectedPosition);
+      } else {
+        fetchAllPlayers();
+      }
+    } catch {
+      // corrupted storage — start fresh
+      localStorage.removeItem(STORAGE_KEY);
       fetchAllPlayers();
     }
-
     fetchCurrentPlayer();
   }, []);
 
-  /* ================= PERSIST TO LOCALSTORAGE ================= */
-
   useEffect(() => {
-    if (!availablePositions.length && !selectedPosition) return;
-
+    if (!Object.keys(availablePlayers).length) return;
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({
-        availablePositions,
-        availablePlayers,
-        selectedPosition,
-      }),
+      JSON.stringify({ availablePlayers, selectedPosition }),
     );
-  }, [availablePositions, availablePlayers, selectedPosition]);
-
-  /* ================= HELPERS ================= */
+  }, [availablePlayers, selectedPosition]);
 
   const getPlayersForPosition = (position) => {
-    if (position === "LW") {
-      return [
-        ...(availablePlayers["LW"] || []),
-        ...(availablePlayers["LM"] || []),
-      ];
-    }
-    if (position === "RW") {
-      return [
-        ...(availablePlayers["RW"] || []),
-        ...(availablePlayers["RM"] || []),
-      ];
-    }
+    if (position === "LW")
+      return [...(availablePlayers["LW"] || []), ...(availablePlayers["LM"] || [])];
+    if (position === "RW")
+      return [...(availablePlayers["RW"] || []), ...(availablePlayers["RM"] || [])];
     return availablePlayers[position] || [];
   };
 
+  // Endless — always picks from the full static list
   const chooseRandomPosition = () => {
-    if (!availablePositions.length) return;
-    const index = Math.floor(Math.random() * availablePositions.length);
-    setSelectedPosition(availablePositions[index]);
+    const index = Math.floor(Math.random() * POSITIONS.length);
+    setSelectedPosition(POSITIONS[index]);
   };
 
   const chooseRandomPlayer = async () => {
     if (!selectedPosition) return;
-
     const players = getPlayersForPosition(selectedPosition);
     if (!players.length) return;
-
     setLoading(true);
-
     try {
       const randomIndex = Math.floor(Math.random() * players.length);
       const randomPlayer = players[randomIndex];
 
-      const positionGroup = [
-        ...(availablePlayers[randomPlayer.Position] || []),
-      ];
-
+      // Remove from pool so same player isn't auctioned twice
+      const positionGroup = [...(availablePlayers[randomPlayer.Position] || [])];
       const idx = positionGroup.findIndex((p) => p.ID === randomPlayer.ID);
       if (idx > -1) positionGroup.splice(idx, 1);
-
       setAvailablePlayers((prev) => ({
         ...prev,
         [randomPlayer.Position]: positionGroup,
       }));
 
-      if (getPlayersForPosition(selectedPosition).length === 1) {
-        setAvailablePositions((prev) =>
-          prev.filter((p) => p !== selectedPosition),
-        );
-      }
-
       await setDoc(
         doc(db, "currentPlayer", "active"),
-        {
-          ...randomPlayer,
-          updatedAt: serverTimestamp(),
-        },
+        { ...randomPlayer, updatedAt: serverTimestamp() },
         { merge: true },
       );
-      setCurrentPlayer((prev) => ({
-        ...prev,
-        ...randomPlayer,
-      }));
+      setCurrentPlayer(randomPlayer);
     } catch (err) {
       console.error("Choose player error:", err);
     } finally {
@@ -177,90 +138,248 @@ const AdminAuctionControl = () => {
     }
   };
 
-  /* ================= UI ================= */
+  const handlePriceChange = (teamId, value) => {
+    setPrices((prev) => ({ ...prev, [teamId]: value }));
+  };
+
+  const handleSell = () => {
+    if (!currentPlayer || !selectedTeam || !prices[selectedTeam]) return;
+
+    const playerId = currentPlayer.ID;
+    const price = Number(prices[selectedTeam]);
+    const teamId = selectedTeam;
+
+    setSoldFlash(teamId);
+    setTimeout(() => setSoldFlash(null), 1200);
+    setSelectedTeam(null);
+    setPrices({});
+
+    updateDoc(doc(db, "players", playerId), {
+      currentTeamId: teamId,
+      currentSeasonId: seasonId,
+      soldPrice: price,
+      updatedAt: serverTimestamp(),
+    }).catch(console.error);
+
+    setDoc(
+      doc(db, "season_players", `${seasonId}_${playerId}`),
+      { playerId, teamId, seasonId, soldPrice: price },
+      { merge: true },
+    ).catch(console.error);
+
+    setDoc(
+      doc(db, "currentPlayer", "active"),
+      {
+        ...currentPlayer,
+        soldPrice: price,
+        soldTo: teamId,
+        status: "sold",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ).catch(console.error);
+  };
+
+  const canSell = !!(selectedTeam && prices[selectedTeam] && currentPlayer);
 
   return (
-    <div className="min-h-screen text-white px-4 py-6 flex justify-center">
-      <div className="w-full max-w-6xl space-y-4">
-        {/* HEADER */}
-        <div className="backdrop-blur-md bg-white/2 border border-white/10 rounded-2xl p-6">
-          <Text variant="subheading" className="text-2xl font-semibold">
-            Auction Panel
-          </Text>
-          <Text variant="para" className="text-sm text-gray-300 mt-2">
-            Randomize positions and push players into live auction.
-          </Text>
+    <div className="min-h-screen overflow-x-hidden text-white flex flex-col px-3 sm:px-4 py-3 sm:py-4 box-border">
+      {/* HEADER */}
+      <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-4 sm:px-6 py-3 mb-3 flex items-center justify-between shrink-0 gap-3">
+        <Text
+          variant="subheading"
+          className="text-lg sm:text-2xl font-semibold tracking-wide truncate"
+        >
+          Auction Panel
+        </Text>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden sm:block text-xs text-white/40 uppercase tracking-widest">
+            Season
+          </span>
+          <input
+            value={seasonId}
+            onChange={(e) => setSeasonId(e.target.value)}
+            className="w-14 sm:w-16 text-center text-sm font-semibold bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-white/40 transition-colors"
+          />
         </div>
+      </div>
 
-        {/* CONTROL BAR */}
-        <div className="backdrop-blur-md bg-white/2 border border-white/30 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* AUCTION CONTROL */}
-          <div className="flex flex-col items-center gap-6">
-            <div className="w-full flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 border-white/40"
-                onClick={chooseRandomPosition}
-                disabled={!availablePositions.length}
-              >
-                <Text variant="para" className="text-[#41FFEE]">
-                  Random Position
-                </Text>
-              </Button>
+      {/* MAIN PANEL */}
+      <div className="flex-1 min-h-0 backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col lg:flex-row">
 
-              <Button
-                variant="outline"
-                className="flex-1 border-white/40"
-                onClick={chooseRandomPlayer}
-                disabled={
-                  !selectedPosition ||
-                  loading ||
-                  !getPlayersForPosition(selectedPosition).length
-                }
-              >
-                <Text variant="para" className="text-[#41FFEE]">
-                  Random Player
-                </Text>
-              </Button>
+        {/* ── COLUMN 1 ── */}
+        <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
+            <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              Currently on Auction
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0 mb-4">
+            <Button onClick={chooseRandomPosition} className="flex-1 text-sm">
+              Random Position
+            </Button>
+            <Button
+              onClick={chooseRandomPlayer}
+              disabled={loading || !selectedPosition}
+              className="flex-1 text-sm"
+            >
+              Random Player
+            </Button>
+          </div>
+
+          <div className="w-full flex flex-col items-start gap-2">
+            <div className="w-full flex justify-center shrink-0">
+              {selectedPosition ? (
+                <div className="w-full inline-flex justify-between items-center rounded-xl px-4 sm:px-5 py-2 gap-3">
+                  <span className="text-[10px] sm:text-xs text-white/40 uppercase tracking-widest leading-tight">
+                    Auctioning
+                    <br />
+                    Position
+                  </span>
+                  <Text
+                    variant="heading"
+                    className="text-3xl sm:text-4xl font-semibold tracking-tight shrink-0"
+                  >
+                    {selectedPosition}
+                  </Text>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-2 bg-white/[0.02] border border-dashed border-white/10 rounded-xl px-5 py-2">
+                  <span className="text-xs text-white/20 uppercase tracking-widest">
+                    No position selected
+                  </span>
+                </div>
+              )}
             </div>
 
-            {selectedPosition && (
-              <Text
-                variant="heading"
-                className="text-xl font-bold border border-white/40 rounded-xl px-4 py-2 w-full text-center"
-              >
-                {selectedPosition}
-              </Text>
-            )}
-
-            {currentPlayer ? (
-              <div
-                className="cursor-pointer hover:scale-[1.02] transition-transform"
-                onClick={() =>
-                  navigate("/player-details", {
-                    state: { player: currentPlayer },
-                  })
-                }
-              >
-                <PlayerCard player={currentPlayer} />
+            <div className="w-full flex justify-between">
+              <div className="w-full flex justify-center shrink-0 mb-2">
+                {currentPlayer ? (
+                  <div className="w-full max-w-full">
+                    <PlayerCardDemo player={currentPlayer} />
+                  </div>
+                ) : (
+                  <div className="w-full flex items-center justify-center h-36 rounded-xl border border-dashed border-white/10">
+                    <p className="text-white/30 text-sm">No player selected</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <p className="text-gray-400">
-                Select a position to begin the auction.
-              </p>
-            )}
-          </div>
-
-          {/* TEAMS */}
-          <div className="flex justify-center items-center">
-            <Text variant="heading">Teams</Text>
-          </div>
-
-          {/* FEATURES */}
-          <div className="flex justify-center items-center">
-            <Text variant="heading">Features</Text>
+            </div>
           </div>
         </div>
+
+        <div className="hidden lg:block w-px bg-white/10 shrink-0" />
+        <div className="block lg:hidden h-px bg-white/10 shrink-0" />
+
+        {/* ── COLUMN 2 ── */}
+        <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
+            <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              Player Assign
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2 flex-1 min-h-0">
+            {TEAMS.map((team) => {
+              const isSelected = selectedTeam === team.id;
+              const justSold = soldFlash === team.id;
+              return (
+                <button
+                  key={team.id}
+                  onClick={() => setSelectedTeam(isSelected ? null : team.id)}
+                  className={`
+                    w-full flex items-center gap-3
+                    px-3 sm:px-4 py-3
+                    rounded-xl border
+                    transition-all duration-200 text-left min-w-0
+                    ${justSold
+                      ? "bg-white/20 border-white/40"
+                      : isSelected
+                        ? "bg-white/20 border-[#41ffee] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
+                        : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/15"
+                    }
+                  `}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/10"
+                    style={{ backgroundColor: team.color }}
+                  />
+                  <span className={`flex-1 text-sm font-medium truncate ${isSelected || justSold ? "text-white" : "text-white/80"}`}>
+                    {team.name}
+                  </span>
+                  {justSold && (
+                    <span className="hidden sm:block text-[10px] uppercase tracking-widest text-white/60 mr-2 shrink-0">
+                      ✓ Sold
+                    </span>
+                  )}
+                  {isSelected && !justSold && (
+                    <span className="hidden sm:block text-[10px] uppercase tracking-widest text-white/40 mr-2 shrink-0">
+                      Selected
+                    </span>
+                  )}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className={`flex items-center gap-1.5 bg-white/5 border rounded-lg px-2 py-1 shrink-0 transition-all duration-200 ${isSelected ? "border-white/20" : "border-white/10"}`}
+                  >
+                    <span className="text-white/30 text-xs">$</span>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={prices[team.id] || ""}
+                      onChange={(e) => handlePriceChange(team.id, e.target.value)}
+                      className="w-12 sm:w-16 bg-transparent text-sm text-right text-white placeholder-white/20 focus:outline-none"
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleSell}
+            disabled={!canSell}
+            className={`
+              shrink-0 mt-4 w-full py-3 rounded-xl
+              text-sm font-semibold uppercase tracking-widest
+              transition-all duration-200
+              ${!canSell
+                ? "bg-white/5 border border-white/10 text-white/25 cursor-not-allowed"
+                : "bg-white/10 border border-white/25 text-white hover:bg-white/15 hover:border-white/40 active:scale-[0.98]"
+              }
+            `}
+          >
+            Confirm Sale
+          </button>
+        </div>
+
+        <div className="hidden lg:block w-px bg-white/10 shrink-0" />
+        <div className="block lg:hidden h-px bg-white/10 shrink-0" />
+
+        {/* ── COLUMN 3 ── */}
+        <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
+            <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              More Features
+            </span>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center py-10">
+            <div className="text-center space-y-2">
+              <div className="w-10 h-10 mx-auto rounded-full border border-dashed border-white/15 flex items-center justify-center">
+                <span className="text-white/20 text-lg">+</span>
+              </div>
+              <span className="block text-xs text-white/20 uppercase tracking-widest">
+                Coming soon
+              </span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

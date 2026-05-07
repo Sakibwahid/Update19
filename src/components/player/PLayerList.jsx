@@ -1,18 +1,45 @@
 import React from "react";
-import PlayerCard from "./PlayerCard";
+import PlayerCardDemo from "./PlayerCardDemo";
 
-const PlayerList = ({ players, onPlayerClick, loading }) => {
-  if (loading) return <p>Loading players...</p>;
-  if (!players.length) return <p>No players found. Select Category</p>;
+const PlayerList = ({ players = [], onPlayerClick, loading }) => {
+  if (loading) {
+    return (
+      <div className="w-full flex items-center justify-center py-16">
+        <p className="text-sm text-white/40 tracking-wide">
+          Loading players...
+        </p>
+      </div>
+    );
+  }
+
+  if (!players.length) {
+    return (
+      <div className="w-full flex items-center justify-center py-16">
+        <p className="text-sm text-white/30 tracking-wide text-center">
+          No players found. Select a category.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="realtive h-full grid grid-cols-1 items-center justify-center md:grid-cols-2 gap-4">
+    <div
+      className="
+        relative
+        w-full
+        grid grid-cols-1
+        xl:grid-cols-2
+        gap-3
+        items-start
+      "
+    >
       {players.map((player) => (
-        <PlayerCard
-          key={player.ID}
-          player={player}
-          onClick={onPlayerClick}
-        />
+        <div key={player.ID} className="w-full min-w-0">
+          <PlayerCardDemo
+            player={player}
+            onClick={onPlayerClick}
+          />
+        </div>
       ))}
     </div>
   );

@@ -166,7 +166,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 text-white">
       <h2 className="text-xl font-semibold mb-4">Assign Players to Team</h2>
 
       {/* Filters and Assign Button */}
@@ -204,6 +204,7 @@ useEffect(() => {
         >
           {assigning ? "Assigning..." : "Assign Selected Players"}
         </button>
+        
 
         {teamId && (
           <span className="ml-4 font-medium">Team ID: {teamId}</span>

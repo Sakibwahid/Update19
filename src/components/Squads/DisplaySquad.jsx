@@ -36,7 +36,10 @@ const DisplaySquad = () => {
   const [position, setPosition] = useState("All players");
   const [viewMode, setViewMode] = useState("list");
 
-  // Get user team
+  // 🆕 SEASON STATE (DEFAULT HERE)
+  const [seasonId, setSeasonId] = useState("S2");
+
+  /* ---------------- USER TEAM ---------------- */
   useEffect(() => {
     const fetchUserTeam = async () => {
       const user = auth.currentUser;
@@ -53,25 +56,26 @@ const DisplaySquad = () => {
     fetchUserTeam();
   }, []);
 
-  // Fetch squad (optimized + season-based)
+  /* ---------------- FETCH SQUAD ---------------- */
   useEffect(() => {
-    if (!selectedTeamId) return;
+    if (!selectedTeamId || !seasonId) return;
 
     const fetchPlayers = async () => {
       setLoading(true);
 
       try {
-        // 1. season_players (small + fast query)
+        // 1. season_players filtered by team + season
         const seasonQuery = query(
           collection(db, "season_players"),
-          where("teamId", "==", selectedTeamId)
+          where("teamId", "==", selectedTeamId),
+          where("seasonId", "==", seasonId)
         );
 
         const seasonSnap = await getDocs(seasonQuery);
 
-        const seasonData = seasonSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
+        const seasonData = seasonSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
         }));
 
         if (seasonData.length === 0) {
@@ -80,7 +84,7 @@ const DisplaySquad = () => {
           return;
         }
 
-        // 2. fetch only required player docs (no full scan)
+        // 2. fetch player details
         const playerPromises = seasonData.map((sp) =>
           getDoc(doc(db, "players", sp.playerId))
         );
@@ -94,13 +98,13 @@ const DisplaySquad = () => {
           }
         });
 
-        // 3. merge data (UI unchanged)
+        // 3. merge
         let merged = seasonData.map((sp) => ({
           ...sp,
           ...playerMap[sp.playerId],
         }));
 
-        // 4. filter position (client-side, same UI logic)
+        // 4. position filter
         if (position !== "All players") {
           merged = merged.filter((p) => p.Position === position);
         }
@@ -117,8 +121,9 @@ const DisplaySquad = () => {
     };
 
     fetchPlayers();
-  }, [selectedTeamId, position]);
+  }, [selectedTeamId, position, seasonId]);
 
+  /* ---------------- GROUP PLAYERS ---------------- */
   const groupedPlayers = players.reduce((acc, p) => {
     const group = getGroup(p.Position);
     if (!acc[group]) acc[group] = [];
@@ -131,8 +136,9 @@ const DisplaySquad = () => {
   return (
     <div className="p-4 min-w-full flex flex-col mx-auto space-y-4">
 
+      {/* HEADER */}
       <div className="flex justify-between items-center">
-        <Text variant="heading" className="text-white text-center mb-4">
+        <Text variant="heading" className="text-white mb-4">
           {viewMode === "list" ? "Your Squad" : "Squad Builder"}
         </Text>
 
@@ -148,7 +154,10 @@ const DisplaySquad = () => {
 
       {viewMode === "list" && (
         <>
-          <div className="flex items-center space-x-4">
+          {/* FILTERS */}
+          <div className="flex items-center gap-4 flex-wrap">
+
+            {/* POSITION */}
             <Input
               label="Position"
               options={[
@@ -172,25 +181,42 @@ const DisplaySquad = () => {
               onChange={(e) => setPosition(e.target.value)}
             />
 
+            {/* TEAM */}
             <div className="flex flex-col gap-1">
               <label className="text-xs text-gray-300">Team</label>
               <select
                 value={selectedTeamId || ""}
                 onChange={(e) => setSelectedTeamId(e.target.value)}
-                className="text-white h-10 border border-gray-400 px-3 rounded-lg bg-transparent appearance-none text-sm leading-none focus:outline-none focus:ring-1 focus:ring-gray-300"
+                className="text-white h-10 border border-gray-400 px-3 rounded-lg bg-transparent text-sm"
               >
                 {userTeamId && (
                   <option value={userTeamId}>Your Squad</option>
                 )}
-                <option value="wolves01">Wolverhampton Wanderers</option>
-                <option value="bayern05">FC Bayern Munich</option>
+                <option value="wolves01">Wolves</option>
+                <option value="bayern05">Bayern Munich</option>
                 <option value="city04">Manchester City</option>
                 <option value="united03">Manchester United</option>
-                <option value="liverpool01">Liverpool FC</option>
+                <option value="liverpool01">Liverpool</option>
               </select>
             </div>
+
+            {/* 🆕 SEASON */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-300">Season</label>
+              <select
+                value={seasonId}
+                onChange={(e) => setSeasonId(e.target.value)}
+                className="text-white h-10 border border-gray-400 px-3 rounded-lg bg-transparent text-sm"
+              >
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+                <option value="S4">S4</option>
+              </select>
+            </div>
+
           </div>
 
+          {/* PLAYER LIST */}
           {Object.entries(groupedPlayers).map(([group, list]) => (
             <div key={group} className="space-y-2">
               <Text className="text-gray-300 text-xl font-semibold mt-4">
@@ -200,33 +226,32 @@ const DisplaySquad = () => {
               {list.map((p) => (
                 <div
                   key={p.id}
-                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2 backdrop-blur-md bg-blue-50 border border-white/10 shadow-sm"
+                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2 backdrop-blur-md bg-blue-50 border border-white/10"
                 >
                   <img
                     src={`/player_photos/${p.playerId || p.id}.png`}
                     alt={p.Name}
-                    className="w-14 h-14 rounded-full object-cover shrink-0"
+                    className="w-14 h-14 rounded-full object-cover"
                   />
 
-                  <div className="flex-1 flex flex-col min-w-0">
-                    <Text className="text-slate-950 font-semibold text-xl">
+                  <div className="flex-1">
+                    <Text className="text-black font-semibold text-xl">
                       {p.Name}
                     </Text>
-                    <Text className="text-gray-800">
+                    
+                  </div>
+                  <div className="flex justify-between items-center gap-2">
+
+                  <Text className="text-gray-800 font-semibold text-xl">
                       {p.Position}
                     </Text>
-                  </div>
+                  <Text className="text-black font-bold text-xl">
+                    {p.Overall}
+                  </Text>
 
-                  <div className="text-center">
-                    <Text className="text-gray-800 font-bold text-xl">
-                      {p.Overall}
-                    </Text>
-                  </div>
-
-                  <div className="text-right">
-                    <Text className="text-[#053abe] font-bold text-xl">
-                      {p.soldPrice ?? "—"}M
-                    </Text>
+                  <Text className="text-blue-700 font-bold text-xl">
+                    {p.soldPrice ?? "—"}M
+                  </Text>
                   </div>
                 </div>
               ))}
@@ -241,9 +266,8 @@ const DisplaySquad = () => {
         </>
       )}
 
-      {viewMode === "squad" && (
-        <FieldView players={players} />
-      )}
+      {/* FIELD VIEW */}
+      {viewMode === "squad" && <FieldView players={players} />}
     </div>
   );
 };

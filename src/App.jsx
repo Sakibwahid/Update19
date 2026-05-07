@@ -49,7 +49,7 @@ function App() {
                 <Route
                 path="/squadupdate"
                 element={
-                  <ProtectedRoute roles={["admin"]}>
+                  <ProtectedRoute roles={["user", "admin"]}>
                     <PlayerTableAssign />
                   </ProtectedRoute>
                 }
