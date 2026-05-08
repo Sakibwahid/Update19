@@ -10,7 +10,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { useNavigate } from "react-router-dom";
-import PlayerCard from "../player/PlayerCard";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 import PlayerCardDemo from "../player/PlayerCardDemo";
@@ -27,7 +26,8 @@ const TEAMS = [
   { id: "liverpool01", name: "Liverpool", color: "#C8102E" },
 ];
 
-const STORAGE_KEY = "auction_state_v2"; // bumped version to bust stale localStorage
+const STORAGE_KEY = "auction_state_v3";
+const MIN_RATING = 83;
 
 const AdminAuctionControl = () => {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ const AdminAuctionControl = () => {
 
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [prices, setPrices] = useState({});
-  const [seasonId, setSeasonId] = useState("S2");
+  const [seasonId, setSeasonId] = useState("S3");
   const [soldFlash, setSoldFlash] = useState(null);
 
   const fetchCurrentPlayer = async () => {
@@ -56,11 +56,19 @@ const AdminAuctionControl = () => {
     try {
       const snapshot = await getDocs(collection(db, "players"));
       const grouped = {};
+
       snapshot.docs.forEach((d) => {
         const player = d.data();
+
+        // Filter: only include players rated MIN_RATING (83) or above.
+        // Checks both "Overall" and "Rating" fields to cover any field name variation.
+        const rating = player.Overall ?? player.Rating ?? 0;
+        if (rating < MIN_RATING) return;
+
         if (!grouped[player.Position]) grouped[player.Position] = [];
         grouped[player.Position].push(player);
       });
+
       setAvailablePlayers(grouped);
     } catch (err) {
       console.error("Fetch players error:", err);
@@ -78,7 +86,6 @@ const AdminAuctionControl = () => {
         fetchAllPlayers();
       }
     } catch {
-      // corrupted storage — start fresh
       localStorage.removeItem(STORAGE_KEY);
       fetchAllPlayers();
     }
@@ -101,10 +108,16 @@ const AdminAuctionControl = () => {
     return availablePlayers[position] || [];
   };
 
-  // Endless — always picks from the full static list
   const chooseRandomPosition = () => {
-    const index = Math.floor(Math.random() * POSITIONS.length);
-    setSelectedPosition(POSITIONS[index]);
+    const availablePositions = POSITIONS.filter(
+      (position) => getPlayersForPosition(position).length > 0,
+    );
+    if (!availablePositions.length) {
+      setSelectedPosition(null);
+      return;
+    }
+    const index = Math.floor(Math.random() * availablePositions.length);
+    setSelectedPosition(availablePositions[index]);
   };
 
   const chooseRandomPlayer = async () => {
@@ -116,10 +129,10 @@ const AdminAuctionControl = () => {
       const randomIndex = Math.floor(Math.random() * players.length);
       const randomPlayer = players[randomIndex];
 
-      // Remove from pool so same player isn't auctioned twice
       const positionGroup = [...(availablePlayers[randomPlayer.Position] || [])];
       const idx = positionGroup.findIndex((p) => p.ID === randomPlayer.ID);
       if (idx > -1) positionGroup.splice(idx, 1);
+
       setAvailablePlayers((prev) => ({
         ...prev,
         [randomPlayer.Position]: positionGroup,
@@ -180,28 +193,49 @@ const AdminAuctionControl = () => {
     ).catch(console.error);
   };
 
+  const handleResetAuction = async () => {
+    const confirmReset = window.confirm("Reset auction state and local storage?");
+    if (!confirmReset) return;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      setAvailablePlayers({});
+      setSelectedPosition(null);
+      setCurrentPlayer(null);
+      setSelectedTeam(null);
+      setPrices({});
+      setSoldFlash(null);
+      await setDoc(doc(db, "currentPlayer", "active"), {}, { merge: false });
+      await fetchAllPlayers();
+      alert("Auction reset complete.");
+    } catch (err) {
+      console.error("Reset error:", err);
+    }
+  };
+
   const canSell = !!(selectedTeam && prices[selectedTeam] && currentPlayer);
 
   return (
     <div className="min-h-screen overflow-x-hidden text-white flex flex-col px-3 sm:px-4 py-3 sm:py-4 box-border">
+
       {/* HEADER */}
       <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-4 sm:px-6 py-3 mb-3 flex items-center justify-between shrink-0 gap-3">
-        <Text
-          variant="subheading"
-          className="text-lg sm:text-2xl font-semibold tracking-wide truncate"
-        >
+        <Text variant="subheading" className="text-lg sm:text-2xl font-semibold tracking-wide truncate">
           Auction Panel
         </Text>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="hidden sm:block text-xs text-white/40 uppercase tracking-widest">
-            Season
-          </span>
+          <span className="hidden sm:block text-xs text-white/40 uppercase tracking-widest">Season</span>
           <input
             value={seasonId}
             onChange={(e) => setSeasonId(e.target.value)}
             className="w-14 sm:w-16 text-center text-sm font-semibold bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-white/40 transition-colors"
           />
+          <button
+            onClick={handleResetAuction}
+            className="px-3 py-1.5 rounded-lg text-xs uppercase tracking-widest border border-red-500/20 bg-red-500/10 text-red-200 hover:bg-red-500/20 hover:border-red-500/40 transition-all duration-200"
+          >
+            Reset
+          </button>
         </div>
       </div>
 
@@ -212,18 +246,20 @@ const AdminAuctionControl = () => {
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">
-              Currently on Auction
-            </span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">Currently on Auction</span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 shrink-0 mb-4">
-            <Button onClick={chooseRandomPosition} className="flex-1 text-sm">
+            <Button
+              onClick={chooseRandomPosition}
+              disabled={POSITIONS.every((p) => getPlayersForPosition(p).length === 0)}
+              className="flex-1 text-sm"
+            >
               Random Position
             </Button>
             <Button
               onClick={chooseRandomPlayer}
-              disabled={loading || !selectedPosition}
+              disabled={loading || !selectedPosition || getPlayersForPosition(selectedPosition).length === 0}
               className="flex-1 text-sm"
             >
               Random Player
@@ -235,38 +271,29 @@ const AdminAuctionControl = () => {
               {selectedPosition ? (
                 <div className="w-full inline-flex justify-between items-center rounded-xl px-4 sm:px-5 py-2 gap-3">
                   <span className="text-[10px] sm:text-xs text-white/40 uppercase tracking-widest leading-tight">
-                    Auctioning
-                    <br />
-                    Position
+                    Auctioning<br />Position
                   </span>
-                  <Text
-                    variant="heading"
-                    className="text-3xl sm:text-4xl font-semibold tracking-tight shrink-0"
-                  >
+                  <Text variant="heading" className="text-3xl sm:text-4xl font-semibold tracking-tight shrink-0">
                     {selectedPosition}
                   </Text>
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-2 bg-white/[0.02] border border-dashed border-white/10 rounded-xl px-5 py-2">
-                  <span className="text-xs text-white/20 uppercase tracking-widest">
-                    No position selected
-                  </span>
+                  <span className="text-xs text-white/20 uppercase tracking-widest">No position selected</span>
                 </div>
               )}
             </div>
 
-            <div className="w-full flex justify-between">
-              <div className="w-full flex justify-center shrink-0 mb-2">
-                {currentPlayer ? (
-                  <div className="w-full max-w-full">
-                    <PlayerCardDemo player={currentPlayer} />
-                  </div>
-                ) : (
-                  <div className="w-full flex items-center justify-center h-36 rounded-xl border border-dashed border-white/10">
-                    <p className="text-white/30 text-sm">No player selected</p>
-                  </div>
-                )}
-              </div>
+            <div className="w-full flex justify-center shrink-0 mb-2">
+              {currentPlayer ? (
+                <div className="w-full max-w-full">
+                  <PlayerCardDemo player={currentPlayer} />
+                </div>
+              ) : (
+                <div className="w-full flex items-center justify-center h-36 rounded-xl border border-dashed border-white/10">
+                  <p className="text-white/30 text-sm">No player selected</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -278,9 +305,7 @@ const AdminAuctionControl = () => {
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">
-              Player Assign
-            </span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">Player Assign</span>
           </div>
 
           <div className="flex flex-col gap-2 flex-1 min-h-0">
@@ -299,8 +324,8 @@ const AdminAuctionControl = () => {
                     ${justSold
                       ? "bg-white/20 border-white/40"
                       : isSelected
-                        ? "bg-white/20 border-[#41ffee] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
-                        : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/15"
+                        ? "bg-white/20 border-[#41ffee]"
+                        : "bg-white/5 border-white/8 hover:bg-white/10"
                     }
                   `}
                 >
@@ -308,22 +333,10 @@ const AdminAuctionControl = () => {
                     className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/10"
                     style={{ backgroundColor: team.color }}
                   />
-                  <span className={`flex-1 text-sm font-medium truncate ${isSelected || justSold ? "text-white" : "text-white/80"}`}>
-                    {team.name}
-                  </span>
-                  {justSold && (
-                    <span className="hidden sm:block text-[10px] uppercase tracking-widest text-white/60 mr-2 shrink-0">
-                      ✓ Sold
-                    </span>
-                  )}
-                  {isSelected && !justSold && (
-                    <span className="hidden sm:block text-[10px] uppercase tracking-widest text-white/40 mr-2 shrink-0">
-                      Selected
-                    </span>
-                  )}
+                  <span className="flex-1 text-sm font-medium truncate">{team.name}</span>
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className={`flex items-center gap-1.5 bg-white/5 border rounded-lg px-2 py-1 shrink-0 transition-all duration-200 ${isSelected ? "border-white/20" : "border-white/10"}`}
+                    className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 shrink-0"
                   >
                     <span className="text-white/30 text-xs">$</span>
                     <input
@@ -363,9 +376,7 @@ const AdminAuctionControl = () => {
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">
-              More Features
-            </span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">More Features</span>
           </div>
 
           <div className="flex-1 flex items-center justify-center py-10">
@@ -373,9 +384,7 @@ const AdminAuctionControl = () => {
               <div className="w-10 h-10 mx-auto rounded-full border border-dashed border-white/15 flex items-center justify-center">
                 <span className="text-white/20 text-lg">+</span>
               </div>
-              <span className="block text-xs text-white/20 uppercase tracking-widest">
-                Coming soon
-              </span>
+              <span className="block text-xs text-white/20 uppercase tracking-widest">Coming soon</span>
             </div>
           </div>
         </div>

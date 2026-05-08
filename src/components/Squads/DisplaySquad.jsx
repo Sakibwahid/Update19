@@ -28,6 +28,10 @@ const getGroup = (pos) => {
   return "Others";
 };
 
+// Sum soldPrice for an array of players
+const sumValue = (list) =>
+  list.reduce((acc, p) => acc + (p.soldPrice ?? 0), 0);
+
 const DisplaySquad = () => {
   const [players, setPlayers] = useState([]);
   const [userTeamId, setUserTeamId] = useState(null);
@@ -35,8 +39,6 @@ const DisplaySquad = () => {
   const [loading, setLoading] = useState(false);
   const [position, setPosition] = useState("All players");
   const [viewMode, setViewMode] = useState("list");
-
-  // 🆕 SEASON STATE (DEFAULT HERE)
   const [seasonId, setSeasonId] = useState("S2");
 
   /* ---------------- USER TEAM ---------------- */
@@ -44,7 +46,6 @@ const DisplaySquad = () => {
     const fetchUserTeam = async () => {
       const user = auth.currentUser;
       if (!user) return;
-
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
         const teamId = snap.data().teamId;
@@ -52,7 +53,6 @@ const DisplaySquad = () => {
         setSelectedTeamId(teamId);
       }
     };
-
     fetchUserTeam();
   }, []);
 
@@ -62,21 +62,14 @@ const DisplaySquad = () => {
 
     const fetchPlayers = async () => {
       setLoading(true);
-
       try {
-        // 1. season_players filtered by team + season
         const seasonQuery = query(
           collection(db, "season_players"),
           where("teamId", "==", selectedTeamId),
           where("seasonId", "==", seasonId)
         );
-
         const seasonSnap = await getDocs(seasonQuery);
-
-        const seasonData = seasonSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
+        const seasonData = seasonSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         if (seasonData.length === 0) {
           setPlayers([]);
@@ -84,34 +77,26 @@ const DisplaySquad = () => {
           return;
         }
 
-        // 2. fetch player details
         const playerPromises = seasonData.map((sp) =>
           getDoc(doc(db, "players", sp.playerId))
         );
-
         const playerSnaps = await Promise.all(playerPromises);
 
         const playerMap = {};
         playerSnaps.forEach((snap) => {
-          if (snap.exists()) {
-            playerMap[snap.id] = snap.data();
-          }
+          if (snap.exists()) playerMap[snap.id] = snap.data();
         });
 
-        // 3. merge
         let merged = seasonData.map((sp) => ({
-          ...sp,
           ...playerMap[sp.playerId],
+          ...sp,
         }));
 
-        // 4. position filter
         if (position !== "All players") {
           merged = merged.filter((p) => p.Position === position);
         }
 
-        // 5. sort
         merged.sort((a, b) => (b.Overall || 0) - (a.Overall || 0));
-
         setPlayers(merged);
       } catch (err) {
         console.error("Error fetching squad:", err);
@@ -131,6 +116,8 @@ const DisplaySquad = () => {
     return acc;
   }, {});
 
+  const totalValue = sumValue(players);
+
   if (loading) return <Loadin>Stars are loading...</Loadin>;
 
   return (
@@ -144,9 +131,7 @@ const DisplaySquad = () => {
 
         <button
           className="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700"
-          onClick={() =>
-            setViewMode(viewMode === "list" ? "squad" : "list")
-          }
+          onClick={() => setViewMode(viewMode === "list" ? "squad" : "list")}
         >
           {viewMode === "list" ? "Squad View" : "Back to List"}
         </button>
@@ -156,32 +141,15 @@ const DisplaySquad = () => {
         <>
           {/* FILTERS */}
           <div className="flex items-center gap-4 flex-wrap">
-
-            {/* POSITION */}
             <Input
               label="Position"
               options={[
-                "All players",
-                "GK",
-                "CB",
-                "LB",
-                "RB",
-                "LWB",
-                "RWB",
-                "CDM",
-                "CM",
-                "CAM",
-                "LM",
-                "RM",
-                "LW",
-                "RW",
-                "CF",
-                "ST",
+                "All players", "GK", "CB", "LB", "RB", "LWB", "RWB",
+                "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST",
               ]}
               onChange={(e) => setPosition(e.target.value)}
             />
 
-            {/* TEAM */}
             <div className="flex flex-col gap-1">
               <label className="text-xs text-gray-300">Team</label>
               <select
@@ -189,9 +157,7 @@ const DisplaySquad = () => {
                 onChange={(e) => setSelectedTeamId(e.target.value)}
                 className="text-white h-10 border border-gray-400 px-3 rounded-lg bg-transparent text-sm"
               >
-                {userTeamId && (
-                  <option value={userTeamId}>Your Squad</option>
-                )}
+                {userTeamId && <option value={userTeamId}>Your Squad</option>}
                 <option value="wolves01">Wolves</option>
                 <option value="bayern05">Bayern Munich</option>
                 <option value="city04">Manchester City</option>
@@ -200,7 +166,6 @@ const DisplaySquad = () => {
               </select>
             </div>
 
-            {/* 🆕 SEASON */}
             <div className="flex flex-col gap-1">
               <label className="text-xs text-gray-300">Season</label>
               <select
@@ -213,15 +178,59 @@ const DisplaySquad = () => {
                 <option value="S4">S4</option>
               </select>
             </div>
-
           </div>
+
+          {/* SQUAD VALUE SUMMARY */}
+          {players.length > 0 && (
+            <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-5 py-4 flex flex-col gap-3">
+
+              {/* Total */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest text-white/40">
+                  Total Squad Value
+                </span>
+                <span className="text-xl font-bold text-white tracking-tight">
+                  {totalValue}M
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/10" />
+
+              {/* Per-group breakdown */}
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {Object.entries(groupedPlayers).map(([group, list]) => {
+                  const groupValue = sumValue(list);
+                  return (
+                    <div key={group} className="flex items-center gap-2">
+                      <span className="text-xs text-white/40 uppercase tracking-widest">
+                        {group}
+                      </span>
+                      <span className="text-sm font-semibold text-white">
+                        {groupValue}M
+                      </span>
+                      <span className="text-[10px] text-white/25">
+                        ({list.length} players)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          )}
 
           {/* PLAYER LIST */}
           {Object.entries(groupedPlayers).map(([group, list]) => (
             <div key={group} className="space-y-2">
-              <Text className="text-gray-300 text-xl font-semibold mt-4">
-                {group}
-              </Text>
+              <div className="flex items-center justify-between mt-4">
+                <Text className="text-gray-300 text-xl font-semibold">
+                  {group}
+                </Text>
+                <span className="text-sm text-white/40 font-medium">
+                  {sumValue(list)}M
+                </span>
+              </div>
 
               {list.map((p) => (
                 <div
@@ -238,20 +247,18 @@ const DisplaySquad = () => {
                     <Text className="text-black font-semibold text-xl">
                       {p.Name}
                     </Text>
-                    
                   </div>
-                  <div className="flex justify-between items-center gap-2">
 
-                  <Text className="text-gray-800 font-semibold text-xl">
+                  <div className="flex justify-between items-center gap-2">
+                    <Text className="text-gray-800 font-semibold text-xl">
                       {p.Position}
                     </Text>
-                  <Text className="text-black font-bold text-xl">
-                    {p.Overall}
-                  </Text>
-
-                  <Text className="text-blue-700 font-bold text-xl">
-                    {p.soldPrice ?? "—"}M
-                  </Text>
+                    <Text className="text-black font-bold text-xl">
+                      {p.Overall}
+                    </Text>
+                    <Text className="text-blue-700 font-bold text-xl">
+                      {p.soldPrice ?? "—"}M
+                    </Text>
                   </div>
                 </div>
               ))}
@@ -259,9 +266,7 @@ const DisplaySquad = () => {
           ))}
 
           {players.length === 0 && (
-            <p className="text-sm text-gray-500 text-center">
-              No players found
-            </p>
+            <p className="text-sm text-gray-500 text-center">No players found</p>
           )}
         </>
       )}
