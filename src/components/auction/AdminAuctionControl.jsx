@@ -27,7 +27,7 @@ const TEAMS = [
 ];
 
 const STORAGE_KEY = "auction_state_v3";
-const MIN_RATING = 83;
+const MIN_RATING = 82;
 
 const AdminAuctionControl = () => {
   const navigate = useNavigate();

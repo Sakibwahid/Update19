@@ -21,10 +21,10 @@ const POSITION_GROUPS = {
 };
 
 const getGroup = (pos) => {
-  if (POSITION_GROUPS.GK.includes(pos)) return "Goalkeepers";
-  if (POSITION_GROUPS.DEF.includes(pos)) return "Defenders";
-  if (POSITION_GROUPS.MID.includes(pos)) return "Midfielders";
-  if (POSITION_GROUPS.FWD.includes(pos)) return "Forwards";
+  if (POSITION_GROUPS.GK.includes(pos)) return "GK";
+  if (POSITION_GROUPS.DEF.includes(pos)) return "DEF";
+  if (POSITION_GROUPS.MID.includes(pos)) return "MID";
+  if (POSITION_GROUPS.FWD.includes(pos)) return "FWD";
   return "Others";
 };
 
@@ -121,11 +121,11 @@ const DisplaySquad = () => {
   if (loading) return <Loadin>Stars are loading...</Loadin>;
 
   return (
-    <div className="p-4 min-w-full flex flex-col mx-auto space-y-4">
+    <div className="p-4 max-h-screen min-w-full flex flex-col mx-auto space-y-4">
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <Text variant="heading" className="text-white mb-4">
+        <Text variant="subheading" className="text-white mb-4">
           {viewMode === "list" ? "Your Squad" : "Squad Builder"}
         </Text>
 
@@ -198,11 +198,11 @@ const DisplaySquad = () => {
               <div className="h-px bg-white/10" />
 
               {/* Per-group breakdown */}
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <div className="flex justify-between gap-x-6 gap-y-2">
                 {Object.entries(groupedPlayers).map(([group, list]) => {
                   const groupValue = sumValue(list);
                   return (
-                    <div key={group} className="flex items-center gap-2">
+                    <div key={group} className="flex flex-col items-center">
                       <span className="text-xs text-white/40 uppercase tracking-widest">
                         {group}
                       </span>

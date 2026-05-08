@@ -1,637 +1,559 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Text } from "../ui/Text";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useEffect,
+} from "react";
 import Field from "/public/Field.jpeg";
-import {
-  DndContext,
-  closestCenter,
-  useDraggable,
-  useDroppable,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 
-/* =========================
-   POSITION COORDINATES
-   X: 0-100 (left to right)
-   Y: 0-100 (top to bottom)
-========================= */
+/*
+  Fullscreen tactics board
+  • Saved squad using localStorage
+  • Reset button
+  • No layout/design changes
+  • Tiny football manager simulator for tired humans
+*/
 
-const POSITION_COORDINATES = {
-  // Attackers (Y: 10-15)
-  LW: { x: 15, y: 12 },
-  ST: { x: 50, y: 10 },
-  RW: { x: 85, y: 12 },
-  
-  // Attacking Midfielders (Y: 25-30)
-  LAM: { x: 25, y: 28 },
-  CAM: { x: 50, y: 25 },
-  RAM: { x: 75, y: 28 },
-  
-  // Central Midfielders (Y: 40-45)
-  LCM: { x: 30, y: 42 },
-  CM: { x: 50, y: 40 },
-  RCM: { x: 70, y: 42 },
-  
-  // Defensive Midfielders (Y: 55-58)
-  LCDM: { x: 35, y: 56 },
-  CDM: { x: 50, y: 55 },
-  RCDM: { x: 65, y: 56 },
-  
-  // Wide Midfielders (Y: 48)
-  LM: { x: 10, y: 48 },
-  RM: { x: 90, y: 48 },
-  
-  // Wing-backs (Y: 62)
-  LWB: { x: 12, y: 62 },
-  RWB: { x: 88, y: 62 },
-  
-  // Defenders (Y: 75-78)
-  LB: { x: 15, y: 78 },
-  LCB: { x: 38, y: 75 },
-  CB: { x: 50, y: 75 },
-  RCB: { x: 62, y: 75 },
-  RB: { x: 85, y: 78 },
-  
-  // Goalkeeper (Y: 90)
-  GK: { x: 50, y: 90 },
-  
-  // Alternative positions
-  CF: { x: 50, y: 20 }, // False 9
-};
-
-/* =========================
-   FORMATIONS
-   Maps formation slots to position keys
-========================= */
-
-const FORMATIONS = {
-  "4-3-3": {
-    positions: {
-      LW: "LW",
-      ST: "ST",
-      RW: "RW",
-      LCM: "LCM",
-      CDM: "CDM",
-      RCM: "RCM",
-      LB: "LB",
-      LCB: "LCB",
-      RCB: "RCB",
-      RB: "RB",
-      GK: "GK",
-    },
-    roles: {
-      LW: "LW", ST: "ST", RW: "RW",
-      LCM: "CM", CDM: "CDM", RCM: "CM",
-      LB: "LB", LCB: "CB", RCB: "CB", RB: "RB",
-      GK: "GK",
-    },
-  },
-
-  "4-4-2": {
-    positions: {
-      ST1: "LW",  // Using LW position for left striker
-      ST2: "RW",  // Using RW position for right striker
-      LM: "LM",
-      LCM: "LCM",
-      RCM: "RCM",
-      RM: "RM",
-      LB: "LB",
-      LCB: "LCB",
-      RCB: "RCB",
-      RB: "RB",
-      GK: "GK",
-    },
-    roles: {
-      ST1: "ST", ST2: "ST",
-      LM: "LM", LCM: "CM", RCM: "CM", RM: "RM",
-      LB: "LB", LCB: "CB", RCB: "CB", RB: "RB",
-      GK: "GK",
-    },
-  },
-
-  "3-5-2": {
-    positions: {
-      ST1: "LW",  // Left striker position
-      ST2: "RW",  // Right striker position
-      LWB: "LWB",
-      LCM: "LCM",
-      CDM: "CDM",
-      RCM: "RCM",
-      RWB: "RWB",
-      LCB: "LCB",
-      CB: "CB",
-      RCB: "RCB",
-      GK: "GK",
-    },
-    roles: {
-      ST1: "ST", ST2: "ST",
-      LWB: "LWB", LCM: "CM", CDM: "CDM", RCM: "CM", RWB: "RWB",
-      LCB: "CB", CB: "CB", RCB: "CB",
-      GK: "GK",
-    },
-  },
-
-  "4-2-3-1": {
-    positions: {
-      ST: "ST",
-      LAM: "LAM",
-      CAM: "CAM",
-      RAM: "RAM",
-      LCDM: "LCDM",
-      RCDM: "RCDM",
-      LB: "LB",
-      LCB: "LCB",
-      RCB: "RCB",
-      RB: "RB",
-      GK: "GK",
-    },
-    roles: {
-      ST: "ST",
-      LAM: "LW", CAM: "CAM", RAM: "RW",
-      LCDM: "CDM", RCDM: "CDM",
-      LB: "LB", LCB: "CB", RCB: "CB", RB: "RB",
-      GK: "GK",
-    },
-  },
-
-  "4-3-3 False 9": {
-    positions: {
-      LW: "LW",
-      CF: "CF",
-      RW: "RW",
-      LCM: "LCM",
-      CDM: "CDM",
-      RCM: "RCM",
-      LB: "LB",
-      LCB: "LCB",
-      RCB: "RCB",
-      RB: "RB",
-      GK: "GK",
-    },
-    roles: {
-      LW: "LW", CF: "CF", RW: "RW",
-      LCM: "CM", CDM: "CDM", RCM: "CM",
-      LB: "LB", LCB: "CB", RCB: "CB", RB: "RB",
-      GK: "GK",
-    },
-  },
-
-  "4-2-2-2": {
-    positions: {
-      LST: "LW",
-      RST: "RW",
-      LAM: "LAM",
-      RAM: "RAM",
-      LCDM: "LCDM",
-      RCDM: "RCDM",
-      LB: "LB",
-      LCB: "LCB",
-      RCB: "RCB",
-      RB: "RB",
-      GK: "GK",
-    },
-    roles: {
-      LST: "ST", RST: "ST",
-      LAM: "CAM", RAM: "CAM",
-      LCDM: "CDM", RCDM: "CDM",
-      LB: "LB", LCB: "CB", RCB: "CB", RB: "RB",
-      GK: "GK",
-    },
-  },
-};
-
-/* =========================
-   POSITION FIT LOGIC
-========================= */
-
-const getPositionFit = (player, role) => {
-  if (!player) return 0;
-  if (player.Position === role) return 1.0;
-  if (player.SecondaryPositions?.includes(role)) return 0.85;
-
-  const attack = ["ST", "CF", "LW", "RW"];
-  const midfield = ["CM", "CDM", "CAM", "LM", "RM"];
-  const defense = ["CB", "LB", "RB"];
-
-  if (attack.includes(player.Position) && attack.includes(role)) return 0.75;
-  if (midfield.includes(player.Position) && midfield.includes(role))
-    return 0.75;
-  if (defense.includes(player.Position) && defense.includes(role)) return 0.75;
-
-  return 0.6;
-};
-
-/* =========================
-   DRAGGABLE PLAYER (BENCH)
-========================= */
-
-const DraggablePlayer = ({ player }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `bench-${player.id}`,
-      data: { player, source: "bench" },
-    });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className="bg-white/10 backdrop-blur-2xl px-3 py-3 rounded-lg cursor-grab active:cursor-grabbing transition-all border border-white/20"
-    >
-      <div className="flex flex-col justify-center items-start gap-2">
-        <div className="w-full flex justify-between items-center">
-          <Text className="text-white text-xl">{player.Name}</Text>
-          <img
-            src={`/player_photos/${player.ID}.png`}
-            alt={player.Name}
-            className="w-14 h-14 object-cover"
-          />
-        </div>
-        <div className="w-full flex justify-between items-center">
-          <Text className="text-white">{player.Position}</Text>
-          <Text className="text-[#41FEFE] font-bold">{player.Overall}</Text>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* =========================
-   DRAGGABLE FIELD PLAYER
-========================= */
-
-const DraggableFieldPlayer = ({ player, slotId }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `field-${slotId}`,
-      data: { player, source: "field", slotId },
-    });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.3 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className="absolute inset-0 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
-    >
-      <div className="flex flex-col justify-center items-center gap-1">
-        <div className="w-10 h-10 rounded-full overflow-hidden bg-white">
-          <img
-            src={`/player_photos/${player.ID}.png`}
-            alt={player.Name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="text-white font-semibold text-center text-sm whitespace-nowrap">
-          {player.Name}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* =========================
-   DROPPABLE SLOT
-========================= */
-
-const Slot = ({ slotId, role, player, onRemove, isActive }) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: slotId,
-    data: { slotId, role },
-  });
-
-  if (!isActive) return null;
-
-  return (
-    <div
-      ref={setNodeRef}
-      onDoubleClick={() => player && onRemove(slotId)}
-      className={`w-10 h-10 rounded-full flex flex-col items-center justify-center text-xs font-semibold relative transition-all duration-200
-        ${isOver ? "ring-4 ring-yellow-400 scale-105 border-yellow-400" : ""}
-        ${player ? "" : "bg-white/5"}
-      `}
-      title={player ? "Double-click to remove" : `Drop player here (${role})`}
-    >
-      {player ? (
-        <DraggableFieldPlayer player={player} slotId={slotId} />
-      ) : (
-        <span className="text-white/60 text-sm">{role}</span>
-      )}
-    </div>
-  );
-};
-
-/* =========================
-   FIFA STYLE RATING CARD
-========================= */
-
-const FIFARatingCard = ({ attack, midfield, defense }) => {
-  return (
-    <div className="rounded-xl py-4 px-4 border-2 border-white/10 shadow-2xl">
-      <h3 className="text-white font-bold text-lg mb-4 text-center">
-        Squad Rating
-      </h3>
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center">
-          <div className="text-2xl text-white font-bold mb-1">{attack}</div>
-          <div className="text-xs text-slate-400 uppercase tracking-wider">
-            Attack
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl text-white font-bold mb-1">{midfield}</div>
-          <div className="text-xs text-slate-400 uppercase tracking-wider">
-            Midfield
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl text-white font-bold mb-1">{defense}</div>
-          <div className="text-xs text-slate-400 uppercase tracking-wider">
-            Defense
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* =========================
-   FIELD VIEW
-========================= */
+const OVERLAP_THRESHOLD = 7;
+const STORAGE_KEY = "saved_tactics_squad";
 
 const FieldView = ({ players }) => {
-  const [formation, setFormation] = useState("4-3-3");
-  const [lineup, setLineup] = useState({
-    formation: "4-3-3",
-    assignments: {},
+
+  /* ════════════════ LOAD SAVED SQUAD ════════════════ */
+
+  const [placed, setPlaced] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
   });
 
-  const formationData = FORMATIONS[formation];
+  const [drag, setDrag] = useState(null);
+
+  const dragRef = useRef(null);
+  const pitchRef = useRef(null);
+  const scrollerRef = useRef(null);
+
+  const longPressTimer = useRef(null);
+  const benchPointerStart = useRef(null);
+
+  const LONG_PRESS_MS = 350;
+
+  /* ════════════════ SAVE SQUAD ════════════════ */
 
   useEffect(() => {
-    const newAssignments = {};
-    Object.keys(formationData.roles).forEach(
-      (slot) => (newAssignments[slot] = null),
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(placed)
     );
-    setLineup({
-      formation,
-      assignments: newAssignments,
+  }, [placed]);
+
+  const placedIds = useMemo(
+    () => new Set(Object.keys(placed)),
+    [placed]
+  );
+
+  const benchPlayers = useMemo(
+    () =>
+      players.filter(
+        (p) => !placedIds.has(String(p.id ?? p.playerId))
+      ),
+    [players, placedIds]
+  );
+
+  const getPlayer = useCallback(
+    (id) =>
+      players.find(
+        (p) => String(p.id ?? p.playerId) === String(id)
+      ),
+    [players]
+  );
+
+  const toPitchPercent = (clientX, clientY) => {
+    const rect = pitchRef.current?.getBoundingClientRect();
+
+    if (!rect) return null;
+
+    const x = Math.min(
+      Math.max(((clientX - rect.left) / rect.width) * 100, 2),
+      98
+    );
+
+    const y = Math.min(
+      Math.max(((clientY - rect.top) / rect.height) * 100, 2),
+      98
+    );
+
+    return { x, y };
+  };
+
+  const isOverPitch = (clientX, clientY) => {
+    const rect = pitchRef.current?.getBoundingClientRect();
+
+    if (!rect) return false;
+
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
+  };
+
+  const findOverlap = (coords, excludeId) => {
+    for (const [id, pos] of Object.entries(placed)) {
+      if (String(id) === String(excludeId)) continue;
+
+      const dx = coords.x - pos.x;
+      const dy = coords.y - pos.y;
+
+      if (Math.sqrt(dx * dx + dy * dy) < OVERLAP_THRESHOLD) {
+        return id;
+      }
+    }
+
+    return null;
+  };
+
+  /* ════════════════ RESET ════════════════ */
+
+  const resetPitch = () => {
+    setPlaced({});
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
+  /* ════════════════ FIELD DRAG ════════════════ */
+
+  const onFieldPlayerPointerDown = (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    dragRef.current = {
+      id,
+      source: "field",
+    };
+
+    setDrag({
+      id,
+      source: "field",
+      ghostX: e.clientX,
+      ghostY: e.clientY,
     });
-  }, [formation]);
+  };
 
-  const benchPlayers = useMemo(() => {
-    const assignedIds = Object.values(lineup.assignments)
-      .filter(Boolean)
-      .map((p) => p.id);
-    return players.filter((p) => !assignedIds.includes(p.id));
-  }, [players, lineup.assignments]);
+  /* ════════════════ BENCH DRAG ════════════════ */
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    if (!over) return;
+  const onBenchPointerDown = (e, id) => {
+    const el = e.currentTarget;
+    const pointerId = e.pointerId;
 
-    const activeData = active.data.current;
+    const startX = e.clientX;
+    const startY = e.clientY;
 
-    if (activeData.source === "bench") {
-      const targetSlot = over.id;
-      const player = activeData.player;
+    clearTimeout(longPressTimer.current);
 
-      setLineup((prev) => {
-        const updated = { ...prev.assignments };
-        Object.keys(updated).forEach((slot) => {
-          if (updated[slot]?.id === player.id) {
-            updated[slot] = null;
-          }
-        });
-        updated[targetSlot] = player;
-        return { ...prev, assignments: updated };
+    benchPointerStart.current = {
+      startX,
+      startY,
+      id,
+    };
+
+    longPressTimer.current = setTimeout(() => {
+      try {
+        el.setPointerCapture(pointerId);
+      } catch {}
+
+      dragRef.current = {
+        id,
+        source: "bench",
+      };
+
+      setDrag({
+        id,
+        source: "bench",
+        ghostX: startX,
+        ghostY: startY,
       });
-    } else if (activeData.source === "field") {
-      const fromSlot = activeData.slotId;
-      const toSlot = over.id;
-      if (fromSlot === toSlot) return;
 
-      setLineup((prev) => {
-        const updated = { ...prev.assignments };
-        const draggedPlayer = updated[fromSlot];
-        const targetPlayer = updated[toSlot];
-        updated[toSlot] = draggedPlayer;
-        updated[fromSlot] = targetPlayer;
-        return { ...prev, assignments: updated };
-      });
+      benchPointerStart.current = null;
+    }, LONG_PRESS_MS);
+  };
+
+  const onBenchPointerMove = (e) => {
+    if (!benchPointerStart.current || dragRef.current) return;
+
+    const { startX, startY } = benchPointerStart.current;
+
+    if (
+      Math.abs(e.clientX - startX) > 6 ||
+      Math.abs(e.clientY - startY) > 6
+    ) {
+      clearTimeout(longPressTimer.current);
+      benchPointerStart.current = null;
     }
   };
 
-  const handleRemovePlayer = (slotId) => {
-    setLineup((prev) => {
-      const updated = { ...prev.assignments };
-      updated[slotId] = null;
-      return { ...prev, assignments: updated };
+  const onBenchPointerUp = () => {
+    clearTimeout(longPressTimer.current);
+    benchPointerStart.current = null;
+  };
+
+  /* ════════════════ GLOBAL POINTER ════════════════ */
+
+  const onPointerMove = (e) => {
+    if (!dragRef.current) return;
+
+    e.preventDefault();
+
+    setDrag((prev) =>
+      prev
+        ? {
+            ...prev,
+            ghostX: e.clientX,
+            ghostY: e.clientY,
+          }
+        : null
+    );
+  };
+
+  const onPointerUp = (e) => {
+    benchPointerStart.current = null;
+
+    if (!dragRef.current) return;
+
+    const { id } = dragRef.current;
+
+    if (isOverPitch(e.clientX, e.clientY)) {
+      const coords = toPitchPercent(e.clientX, e.clientY);
+
+      if (coords) {
+        const evictId = findOverlap(coords, id);
+
+        setPlaced((prev) => {
+          const next = { ...prev };
+
+          if (evictId) {
+            delete next[evictId];
+          }
+
+          next[String(id)] = coords;
+
+          return next;
+        });
+      }
+    }
+
+    dragRef.current = null;
+    setDrag(null);
+  };
+
+  const removeFromField = (id) => {
+    setPlaced((prev) => {
+      const next = { ...prev };
+
+      delete next[String(id)];
+
+      return next;
     });
   };
 
-  const ratings = useMemo(() => {
-    const categoryRatings = { ATT: [], MID: [], DEF: [] };
-
-    const attackPositions = ["ST", "CF", "LW", "RW"];
-    const midfieldPositions = ["CM", "CDM", "CAM", "LM", "RM", "LWB", "RWB"];
-    const defensePositions = ["CB", "LB", "RB"];
-
-    Object.entries(lineup.assignments).forEach(([slotId, player]) => {
-      if (!player) return;
-      const role = formationData.roles[slotId];
-
-      if (attackPositions.includes(role)) {
-        categoryRatings.ATT.push(Number(player.Overall));
-      } else if (midfieldPositions.includes(role)) {
-        categoryRatings.MID.push(Number(player.Overall));
-      } else if (defensePositions.includes(role)) {
-        categoryRatings.DEF.push(Number(player.Overall));
-      }
-    });
-
-    const attack =
-      categoryRatings.ATT.length > 0
-        ? Math.round(
-            categoryRatings.ATT.reduce((a, b) => a + b, 0) /
-              categoryRatings.ATT.length,
-          )
-        : 0;
-
-    const midfield =
-      categoryRatings.MID.length > 0
-        ? Math.round(
-            categoryRatings.MID.reduce((a, b) => a + b, 0) /
-              categoryRatings.MID.length,
-          )
-        : 0;
-
-    const defense =
-      categoryRatings.DEF.length > 0
-        ? Math.round(
-            categoryRatings.DEF.reduce((a, b) => a + b, 0) /
-              categoryRatings.DEF.length,
-          )
-        : 0;
-
-    return { attack, midfield, defense };
-  }, [lineup.assignments, formationData]);
-
-  const filledPositions = Object.values(lineup.assignments).filter(
-    Boolean,
-  ).length;
-  const totalPositions = Object.keys(formationData.roles).length;
-
-  // Get active positions for current formation
-  const activePositionKeys = Object.values(formationData.positions);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br bg-white/10 backdrop-blur-2xl rounded-lg p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <select
-              value={formation}
-              onChange={(e) => setFormation(e.target.value)}
-              className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
-            >
-              {Object.keys(FORMATIONS).map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </div>
+    <div
+      className="h-[500px] overflow-hidden flex justify-between flex-col bg-white/16 backdrop-blur-md select-none"
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+      style={{
+        touchAction: drag ? "none" : "auto",
+      }}
+    >
+      {/* ════════════════ MAIN LAYOUT ════════════════ */}
 
-          <div className="flex items-center gap-4">
-            <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
-              <span className="text-slate-400 text-sm">Players: </span>
-              <span className="text-white font-bold">
-                {filledPositions}/{totalPositions}
+      <div className="flex overflow-hidden">
+
+        {/* ════════════════ PITCH ════════════════ */}
+
+        <div className="flex-1 min-h-0">
+          <div
+            ref={pitchRef}
+            className="relative w-full h-full overflow-hidden border border-white/15 shadow-2xl"
+            style={{
+              backgroundImage: `url(${Field})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            {/* overlay */}
+
+            <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+
+            {/* FIELD SVG */}
+
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 100 150"
+              preserveAspectRatio="none"
+            >
+              <rect
+                x="4"
+                y="3"
+                width="92"
+                height="144"
+                fill="none"
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth="0.6"
+              />
+
+              <line
+                x1="4"
+                y1="75"
+                x2="96"
+                y2="75"
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth="0.6"
+              />
+
+              <circle
+                cx="50"
+                cy="75"
+                r="13"
+                fill="none"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth="0.6"
+              />
+
+              <circle
+                cx="50"
+                cy="75"
+                r="1"
+                fill="rgba(255,255,255,0.3)"
+              />
+
+              <rect
+                x="22"
+                y="111"
+                width="56"
+                height="36"
+                fill="none"
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth="0.6"
+              />
+
+              <rect
+                x="35"
+                y="129"
+                width="30"
+                height="18"
+                fill="none"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth="0.6"
+              />
+
+              <rect
+                x="40"
+                y="145"
+                width="20"
+                height="4"
+                fill="none"
+                stroke="rgba(255,255,255,0.35)"
+                strokeWidth="0.8"
+              />
+            </svg>
+
+            {/* LABELS */}
+
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none">
+              <span className="text-[9px] text-white/25 uppercase tracking-widest">
+                Opponent
               </span>
             </div>
+
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">
+              <span className="text-[9px] text-white/25 uppercase tracking-widest">
+                Your Goal
+              </span>
+            </div>
+
+            {/* DRAG HINT */}
+
+            {drag && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <span className="text-white/30 text-[10px] uppercase tracking-widest">
+                  Release to place
+                </span>
+              </div>
+            )}
+
+            {/* PLAYERS */}
+
+            {Object.entries(placed).map(([id, coords]) => {
+              const player = getPlayer(id);
+
+              if (!player) return null;
+
+              const isBeingDragged =
+                String(drag?.id) === String(id);
+
+              return (
+                <div
+                  key={id}
+                  onPointerDown={(e) =>
+                    onFieldPlayerPointerDown(e, id)
+                  }
+                  onDoubleClick={() =>
+                    removeFromField(id)
+                  }
+                  className="absolute z-20 -translate-x-1/2 -translate-y-1/2 touch-none"
+                  style={{
+                    left: `${coords.x}%`,
+                    top: `${coords.y}%`,
+                    opacity: isBeingDragged ? 0.2 : 1,
+                    cursor: "grab",
+                  }}
+                >
+                  <PlayerPin player={player} />
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Sidebar - Rating */}
-          <div className="lg:col-span-1 flex flex-col justify-start">
-            <FIFARatingCard
-              attack={ratings.attack}
-              midfield={ratings.midfield}
-              defense={ratings.defense}
-            />
+        {/* ════════════════ BENCH ════════════════ */}
+
+        <div className="w-[65px] flex flex-col min-h-0">
+
+          <div className="flex items-center gap-2 my-2 px-1 shrink-0">
+            <span className="w-1.5 h-4 rounded-full bg-white/25 inline-block" />
+
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/50">
+              Bench
+            </span>
           </div>
 
-          {/* Center - Football Pitch */}
-          <div className="lg:col-span-2">
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              {/* Football Field */}
-              <div
-                className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-white/20 aspect-[2/3]"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #2d5016 0%, #1a3d0a 50%, #2d5016 100%)",
-                  backgroundImage: `url(${Field})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
-                {/* Field Lines */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Center Circle */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2 border-white/30"></div>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white/30"></div>
+          {/* RESET BUTTON */}
 
-                  {/* Center Line */}
-                  <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30"></div>
+          <button
+            onClick={resetPitch}
+            className="mx-1 mb-2 text-[9px] uppercase tracking-widest text-white/60 border border-white/10 rounded-md py-1 bg-white/5 active:scale-95 transition shrink-0"
+          >
+            Reset
+          </button>
 
-                  {/* Penalty Boxes */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-24 border-2 border-white/30 border-t-0"></div>
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-64 h-24 border-2 border-white/30 border-b-0"></div>
+          {/* SCROLLABLE LIST */}
 
-                  {/* Goal Boxes */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-12 border-2 border-white/30 border-t-0"></div>
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 h-12 border-2 border-white/30 border-b-0"></div>
-                </div>
+          <div
+            ref={scrollerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-1"
+            style={{
+              touchAction: drag ? "none" : "pan-y",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            {benchPlayers.map((player) => {
+              const id = String(
+                player.id ?? player.playerId
+              );
 
-                {/* Absolute Positioned Players */}
-                <div className="relative h-full w-full">
-                  {Object.entries(formationData.positions).map(([slotId, posKey]) => {
-                    const coords = POSITION_COORDINATES[posKey];
-                    const player = lineup.assignments[slotId];
-                    const role = formationData.roles[slotId];
-                    const isActive = activePositionKeys.includes(posKey);
+              const isBeingDragged =
+                String(drag?.id) === id;
 
-                    return (
-                      <div
-                        key={slotId}
-                        className="absolute"
-                        style={{
-                          left: `${coords.x}%`,
-                          top: `${coords.y}%`,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                      >
-                        <Slot
-                          slotId={slotId}
-                          role={role}
-                          player={player}
-                          onRemove={handleRemovePlayer}
-                          isActive={isActive}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Bench Section */}
-              <div className="mt-6 rounded-xl">
-                <div className="flex flex-col items-center justify-center mb-4 gap-1">
-                  <div className="flex items-center gap-2">
-                    <Text className="text-white font-bold text-lg">Bench</Text>
-                    <Text className="text-white">({benchPlayers.length})</Text>
+              return (
+                <div
+                  key={id}
+                  onPointerDown={(e) =>
+                    onBenchPointerDown(e, id)
+                  }
+                  onPointerMove={onBenchPointerMove}
+                  onPointerUp={onBenchPointerUp}
+                  onPointerCancel={onBenchPointerUp}
+                  className="flex flex-col items-center gap-1 shrink-0"
+                  style={{
+                    opacity: isBeingDragged ? 0.3 : 1,
+                    cursor: "grab",
+                    touchAction: "pan-y",
+                  }}
+                >
+                  <div className="w-14 h-14 rounded-xl overflow-hidden border border-white/10 bg-blue-900/60 shadow">
+                    <img
+                      src={`/player_photos/${
+                        player.ID ?? player.playerId
+                      }.png`}
+                      alt={player.Name}
+                      className="w-full h-full object-cover object-top"
+                      draggable={false}
+                    />
                   </div>
-                  <Text className="text-white text-sm opacity-70">
-                    Drag players onto the field
-                  </Text>
-                </div>
 
-                {benchPlayers.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {benchPlayers.map((player) => (
-                      <DraggablePlayer key={player.id} player={player} />
-                    ))}
+                  <div className="flex flex-col items-center">
+                    <span className="text-white text-[10px] font-semibold leading-tight max-w-[80px] truncate text-center">
+                      {player.Name?.split(" ").pop()}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <span className="text-white/40 text-[9px] uppercase">
+                        {player.Position}
+                      </span>
+
+                      <span className="text-[#41d8ff] text-[10px] font-bold">
+                        {player.Overall}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    All players are in the starting XI
-                  </div>
-                )}
-              </div>
-            </DndContext>
+                </div>
+              );
+            })}
+
+            <div className="h-2 shrink-0" />
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+/* ════════════════ PLAYER PIN ════════════════ */
+
+const PlayerPin = ({ player, ghost = false }) => (
+  <div
+    className="flex flex-col items-center gap-0.5"
+    style={{
+      opacity: ghost ? 0.9 : 1,
+    }}
+  >
+    <div
+      className="w-9 h-9 rounded-full overflow-hidden shadow-lg bg-blue-900 border-2"
+      style={{
+        borderColor: ghost
+          ? "rgba(65,216,255,0.9)"
+          : "rgba(255,255,255,0.65)",
+      }}
+    >
+      <img
+        src={`/player_photos/${player.ID ?? player.playerId}.png`}
+        alt={player.Name}
+        className="w-full h-full object-cover object-top"
+        draggable={false}
+      />
+    </div>
+
+    <div className="bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5 flex items-center gap-1 max-w-[72px]">
+      <span className="text-white text-[10px] font-semibold truncate leading-none">
+        {player.Name?.split(" ").pop()}
+      </span>
+
+      <span className="text-[#41d8ff] text-[10px] font-bold leading-none shrink-0">
+        {player.Overall}
+      </span>
+    </div>
+  </div>
+);
 
 export default FieldView;
