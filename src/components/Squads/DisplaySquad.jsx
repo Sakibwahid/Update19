@@ -39,7 +39,7 @@ const DisplaySquad = () => {
   const [loading, setLoading] = useState(false);
   const [position, setPosition] = useState("All players");
   const [viewMode, setViewMode] = useState("list");
-  const [seasonId, setSeasonId] = useState("S2");
+  const [seasonId, setSeasonId] = useState("S3");
 
   /* ---------------- USER TEAM ---------------- */
   useEffect(() => {

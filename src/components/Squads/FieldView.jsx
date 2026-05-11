@@ -6,32 +6,29 @@ import React, {
   useEffect,
 } from "react";
 
+import Field from "/public/Field.jpeg";
+
 const OVERLAP_THRESHOLD = 7;
 const STORAGE_KEY = "saved_tactics_squad";
 
-import Field from "/public/Field.jpeg";
-
-const FieldView = ({ players, Field }) => {
+const FieldView = ({ players }) => {
   /* ═════════════ STATE ═════════════ */
 
   const [placed, setPlaced] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
+
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
     }
   });
 
-  const [drag, setDrag] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   const pitchRef = useRef(null);
-  const longPressTimer = useRef(null);
-  const benchStart = useRef(null);
 
-  // IMPORTANT
-  // this blocks bench scrolling while long press drag is active
-  const dragModeRef = useRef(false);
+  const lastTapRef = useRef({});
 
   /* ═════════════ SAVE ═════════════ */
 
@@ -39,35 +36,27 @@ const FieldView = ({ players, Field }) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(placed));
   }, [placed]);
 
-  /* ═════════════ GLOBAL POINTER EVENTS ═════════════ */
-
-  useEffect(() => {
-    const move = (e) => onPointerMove(e);
-    const up = (e) => onPointerUp(e);
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-    };
-  });
-
   /* ═════════════ HELPERS ═════════════ */
 
-  const placedIds = useMemo(() => new Set(Object.keys(placed)), [placed]);
+  const placedIds = useMemo(
+    () => new Set(Object.keys(placed)),
+    [placed]
+  );
 
   const benchPlayers = useMemo(
-    () => players.filter((p) => !placedIds.has(String(p.id ?? p.playerId))),
-    [players, placedIds],
+    () =>
+      players.filter(
+        (p) => !placedIds.has(String(p.id ?? p.playerId))
+      ),
+    [players, placedIds]
   );
 
   const getPlayer = useCallback(
-    (id) => players.find((p) => String(p.id ?? p.playerId) === String(id)),
-    [players],
+    (id) =>
+      players.find(
+        (p) => String(p.id ?? p.playerId) === String(id)
+      ),
+    [players]
   );
 
   const toPercent = (x, y) => {
@@ -76,20 +65,16 @@ const FieldView = ({ players, Field }) => {
     if (!rect) return null;
 
     return {
-      x: Math.min(Math.max(((x - rect.left) / rect.width) * 100, 3), 97),
+      x: Math.min(
+        Math.max(((x - rect.left) / rect.width) * 100, 3),
+        97
+      ),
 
-      y: Math.min(Math.max(((y - rect.top) / rect.height) * 100, 3), 97),
+      y: Math.min(
+        Math.max(((y - rect.top) / rect.height) * 100, 3),
+        97
+      ),
     };
-  };
-
-  const isOverPitch = (x, y) => {
-    const rect = pitchRef.current?.getBoundingClientRect();
-
-    if (!rect) return false;
-
-    return (
-      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-    );
   };
 
   const findOverlap = (coords, excludeId) => {
@@ -99,7 +84,10 @@ const FieldView = ({ players, Field }) => {
       const dx = coords.x - pos.x;
       const dy = coords.y - pos.y;
 
-      if (dx * dx + dy * dy < OVERLAP_THRESHOLD * OVERLAP_THRESHOLD) {
+      if (
+        dx * dx + dy * dy <
+        OVERLAP_THRESHOLD * OVERLAP_THRESHOLD
+      ) {
         return id;
       }
     }
@@ -114,123 +102,40 @@ const FieldView = ({ players, Field }) => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  /* ═════════════ DRAG START ═════════════ */
+  /* ═════════════ PLACE PLAYER ═════════════ */
 
-  const startDrag = (id, clientX, clientY) => {
-    dragModeRef.current = true;
+  const placePlayer = (clientX, clientY) => {
+    if (!selectedPlayer) return;
 
-    setDrag({
-      id,
-      ghostX: clientX,
-      ghostY: clientY,
+    const coords = toPercent(clientX, clientY);
+
+    if (!coords) return;
+
+    const overlap = findOverlap(
+      coords,
+      selectedPlayer
+    );
+
+    setPlaced((prev) => {
+      const next = { ...prev };
+
+      if (overlap) {
+        delete next[overlap];
+      }
+
+      next[String(selectedPlayer)] = coords;
+
+      return next;
     });
 
+    setSelectedPlayer(null);
+
     if (navigator.vibrate) {
-      navigator.vibrate(25);
+      navigator.vibrate(20);
     }
   };
 
-  /* ═════════════ BENCH EVENTS ═════════════ */
-
-  const onBenchPointerDown = (e, id) => {
-    e.preventDefault();
-
-    const { clientX, clientY } = e;
-
-    benchStart.current = {
-      id,
-      clientX,
-      clientY,
-    };
-
-    clearTimeout(longPressTimer.current);
-
-    longPressTimer.current = setTimeout(() => {
-      startDrag(id, clientX, clientY);
-
-      benchStart.current = null;
-    }, 280);
-  };
-
-  const onBenchPointerMove = (e) => {
-    if (!benchStart.current || dragModeRef.current) return;
-
-    const dx = Math.abs(e.clientX - benchStart.current.clientX);
-
-    const dy = Math.abs(e.clientY - benchStart.current.clientY);
-
-    // user scrolling bench
-    if (dx > 7 || dy > 7) {
-      clearTimeout(longPressTimer.current);
-      benchStart.current = null;
-    }
-  };
-
-  const onBenchPointerUp = () => {
-    clearTimeout(longPressTimer.current);
-    benchStart.current = null;
-  };
-
-  /* ═════════════ FIELD PLAYER DRAG ═════════════ */
-
-  const onFieldPlayerPointerDown = (e, id) => {
-    e.preventDefault();
-
-    startDrag(id, e.clientX, e.clientY);
-  };
-
-  /* ═════════════ POINTER MOVE ═════════════ */
-
-  const onPointerMove = (e) => {
-    if (!dragModeRef.current) return;
-
-    setDrag((prev) =>
-      prev
-        ? {
-            ...prev,
-            ghostX: e.clientX,
-            ghostY: e.clientY,
-          }
-        : null,
-    );
-  };
-
-  /* ═════════════ POINTER UP ═════════════ */
-
-  const onPointerUp = (e) => {
-    if (!dragModeRef.current || !drag) return;
-
-    const { clientX, clientY } = e;
-
-    if (isOverPitch(clientX, clientY)) {
-      const coords = toPercent(clientX, clientY);
-
-      if (coords) {
-        const overlap = findOverlap(coords, drag.id);
-
-        setPlaced((prev) => {
-          const next = { ...prev };
-
-          if (overlap) {
-            delete next[overlap];
-          }
-
-          next[String(drag.id)] = coords;
-
-          return next;
-        });
-      }
-    }
-
-    dragModeRef.current = false;
-
-    setDrag(null);
-
-    clearTimeout(longPressTimer.current);
-    benchStart.current = null;
-  };
-
-  /* ═════════════ REMOVE ═════════════ */
+  /* ═════════════ REMOVE PLAYER ═════════════ */
 
   const removeFromField = (id) => {
     setPlaced((prev) => {
@@ -242,27 +147,39 @@ const FieldView = ({ players, Field }) => {
     });
   };
 
-  const ghostPlayer = drag ? getPlayer(drag.id) : null;
+  /* ═════════════ DOUBLE TAP REMOVE ═════════════ */
+
+  const handleFieldPlayerTap = (id) => {
+    const now = Date.now();
+
+    const lastTap = lastTapRef.current[id] || 0;
+
+    if (now - lastTap < 300) {
+      removeFromField(id);
+    }
+
+    lastTapRef.current[id] = now;
+  };
 
   return (
-    <div
-      className="h-screen overflow-hidden flex flex-col bg-white/16 backdrop-blur-md select-none"
-      style={{
-        touchAction: drag ? "none" : "auto",
-      }}
-    >
+    <div className="h-screen overflow-hidden flex flex-col bg-white/16 backdrop-blur-md select-none">
       {/* ════════════════ PITCH ════════════════ */}
 
       <div className="flex-1 min-h-0 pb-0">
         <div
           ref={pitchRef}
+          onPointerDown={(e) =>
+            placePlayer(e.clientX, e.clientY)
+          }
           className="relative w-full h-full overflow-hidden rounded-2xl border border-white/10"
           style={{
-            backgroundImage: `url(/public/Field.jpeg)`,
+            backgroundImage: `url(${Field})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         >
+          {/* overlay */}
+
           <div className="absolute inset-0 bg-black/20" />
 
           {/* FIELD SVG */}
@@ -306,7 +223,12 @@ const FieldView = ({ players, Field }) => {
               strokeWidth="0.7"
             />
 
-            <circle cx="50" cy="75" r="1" fill="rgba(255,255,255,0.35)" />
+            <circle
+              cx="50"
+              cy="75"
+              r="1"
+              fill="rgba(255,255,255,0.35)"
+            />
 
             {/* TOP PENALTY BOX */}
 
@@ -334,7 +256,12 @@ const FieldView = ({ players, Field }) => {
 
             {/* TOP PENALTY SPOT */}
 
-            <circle cx="50" cy="18" r="0.9" fill="rgba(255,255,255,0.35)" />
+            <circle
+              cx="50"
+              cy="18"
+              r="0.9"
+              fill="rgba(255,255,255,0.35)"
+            />
 
             {/* TOP ARC */}
 
@@ -371,7 +298,12 @@ const FieldView = ({ players, Field }) => {
 
             {/* BOTTOM PENALTY SPOT */}
 
-            <circle cx="50" cy="132" r="0.9" fill="rgba(255,255,255,0.35)" />
+            <circle
+              cx="50"
+              cy="132"
+              r="0.9"
+              fill="rgba(255,255,255,0.35)"
+            />
 
             {/* BOTTOM ARC */}
 
@@ -458,36 +390,24 @@ const FieldView = ({ players, Field }) => {
 
             if (!player) return null;
 
-            const isDragging = String(drag?.id) === String(id);
-
             return (
               <div
                 key={id}
-                onPointerDown={(e) => onFieldPlayerPointerDown(e, id)}
-                onDoubleClick={() => removeFromField(id)}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+
+                  handleFieldPlayerTap(id);
+                }}
                 className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
                 style={{
                   left: `${coords.x}%`,
                   top: `${coords.y}%`,
-                  opacity: isDragging ? 0.2 : 1,
                 }}
               >
                 <PlayerPin player={player} />
               </div>
             );
           })}
-
-          {/* drag indicator */}
-
-          {drag && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-              <div className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-sm border border-white/10">
-                <span className="text-[10px] uppercase tracking-widest text-white/50">
-                  Dragging Player
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -518,53 +438,51 @@ const FieldView = ({ players, Field }) => {
             overscrollBehavior: "contain",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
-
-            // THIS FIXES THE SCROLL ISSUE
-            overflowY: dragModeRef.current ? "hidden" : "auto",
-
-            touchAction: dragModeRef.current ? "none" : "pan-y",
           }}
         >
           <div className="grid grid-cols-4 gap-1 pb-8">
             {benchPlayers.map((player) => {
-              const id = String(player.id ?? player.playerId);
+              const id = String(
+                player.id ?? player.playerId
+              );
 
-              const isDragging = String(drag?.id) === id;
+              const isSelected =
+                String(selectedPlayer) === id;
 
               return (
                 <div
                   key={id}
-                  onPointerDown={(e) => onBenchPointerDown(e, id)}
-                  onPointerMove={onBenchPointerMove}
-                  onPointerUp={onBenchPointerUp}
-                  onPointerCancel={onBenchPointerUp}
+                  onPointerDown={() =>
+                    setSelectedPlayer(id)
+                  }
                   className="flex flex-col items-center gap-1"
                   style={{
-                    opacity: isDragging ? 0.25 : 1,
-                    touchAction: "pan-y",
                     WebkitTouchCallout: "none",
                     WebkitUserSelect: "none",
                     userSelect: "none",
                   }}
                 >
-                  <div
-                    className="w-full flex flex-col items-center"
-                    draggable={false}
-                  >
-                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-white/10 bg-blue-900/60 shadow">
+                  <div className="w-full flex flex-col items-center">
+                    <div
+                      className={`w-16 h-16 rounded-xl overflow-hidden border bg-blue-900/60 shadow transition-all duration-150 ${
+                        isSelected
+                          ? "border-cyan-400 ring-2 ring-cyan-400/70 scale-105"
+                          : "border-white/10"
+                      }`}
+                    >
                       <img
                         src={`/player_photos/${
-                          player.ID ?? player.playerId
+                          player.ID ??
+                          player.playerId
                         }.png`}
                         className="w-full h-full object-cover object-top"
                         draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                        onContextMenu={(e) => e.preventDefault()}
-                        style={{
-                          WebkitTouchCallout: "none",
-                          WebkitUserSelect: "none",
-                          userSelect: "none",
-                        }}
+                        onDragStart={(e) =>
+                          e.preventDefault()
+                        }
+                        onContextMenu={(e) =>
+                          e.preventDefault()
+                        }
                       />
                     </div>
 
@@ -590,50 +508,21 @@ const FieldView = ({ players, Field }) => {
           </div>
         </div>
       </div>
-
-      {/* ════════════════ DRAG GHOST ════════════════ */}
-
-      {drag && ghostPlayer && (
-        <div
-          className="fixed z-[9999] pointer-events-none -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: drag.ghostX,
-            top: drag.ghostY,
-          }}
-        >
-          <PlayerPin player={ghostPlayer} ghost />
-        </div>
-      )}
     </div>
   );
 };
 
 /* ════════════════ PLAYER PIN ════════════════ */
 
-const PlayerPin = ({ player, ghost = false }) => (
-  <div
-    className="flex flex-col items-center gap-0.5"
-    style={{
-      opacity: ghost ? 0.95 : 1,
-    }}
-  >
-    <div
-      className="w-9 h-9 rounded-full overflow-hidden shadow-lg bg-blue-900 border-2"
-      style={{
-        borderColor: ghost ? "rgba(65,216,255,0.95)" : "rgba(255,255,255,0.65)",
-      }}
-    >
+const PlayerPin = ({ player }) => (
+  <div className="flex flex-col items-center gap-0.5">
+    <div className="w-9 h-9 rounded-full overflow-hidden shadow-lg bg-blue-900 border-2 border-white/65">
       <img
-        src={`/player_photos/${player.ID ?? player.playerId}.png`}
+        src={`/player_photos/${
+          player.ID ?? player.playerId
+        }.png`}
         className="w-full h-full object-cover object-top"
         draggable={false}
-        onDragStart={(e) => e.preventDefault()}
-        onContextMenu={(e) => e.preventDefault()}
-        style={{
-          WebkitTouchCallout: "none",
-          WebkitUserSelect: "none",
-          userSelect: "none",
-        }}
       />
     </div>
 
