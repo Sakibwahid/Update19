@@ -1,51 +1,120 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase/config';
-import { getUserData } from '../lib/firebase/auth';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+} from "react";
 
+import { onAuthStateChanged } from "firebase/auth";
+
+import { auth } from "../lib/firebase/config";
+import { getUserData } from "../lib/firebase/auth";
+
+// Create Context
 const AuthContext = createContext();
 
+// Provider Component
 export const AuthProvider = ({ children }) => {
-  // State to store user authentication status
-  const [user, setUser] = useState(null); // Firebase auth user (email, uid, etc.)
-  const [userData, setUserData] = useState(null); // Our custom user data from Firestore (role, teamName, etc.)
-  const [loading, setLoading] = useState(true); // Loading state while checking auth
+  // Firebase Auth User
+  const [user, setUser] = useState(null);
 
-  // 3. Listen for authentication state changes
+  // Firestore User Data
+  const [userData, setUserData] = useState(null);
+
+  // Initial Auth Loading
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    // onAuthStateChanged runs whenever user logs in or out
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-    
-        setUser(firebaseUser);
-       
-        // Fetch additional user data from Firestore
-        const result = await getUserData(firebaseUser.uid);
-        if (result.success) {
-          setUserData(result.data);
-        } 
-      } else {
+    let mounted = true;
 
-        setUser(null);
-        setUserData(null);
+    // Listen to auth state changes
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        try {
+          // USER LOGGED IN
+          if (firebaseUser) {
+            if (!mounted) return;
+
+            setUser(firebaseUser);
+
+            // Check local cache first
+            const cachedUserData =
+              localStorage.getItem("userData");
+
+            if (cachedUserData) {
+              setUserData(JSON.parse(cachedUserData));
+            }
+
+            // Fetch latest user data from Firestore
+            const result = await getUserData(
+              firebaseUser.uid
+            );
+
+            if (
+              mounted &&
+              result?.success &&
+              result?.data
+            ) {
+              setUserData(result.data);
+
+              // Cache locally
+              localStorage.setItem(
+                "userData",
+                JSON.stringify(result.data)
+              );
+            }
+          }
+
+          // USER LOGGED OUT
+          else {
+            if (!mounted) return;
+
+            setUser(null);
+            setUserData(null);
+
+            // Clear cache
+            localStorage.removeItem("userData");
+          }
+        } catch (error) {
+          console.error(
+            "AuthContext Error:",
+            error
+          );
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
       }
-      setLoading(false); // Done loading
-    });
+    );
 
-    // Cleanup function - unsubscribe when component unmounts
-    return () => unsubscribe();
-  }, []); // Empty dependency array = run once on mount
+    // Cleanup
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
-  // 4. Create the value object to share
-  const value = {
-    user,              // Firebase auth user object
-    userData,          // Custom user data from Firestore
-    loading,           // Is authentication being checked?
-    isAdmin: userData?.role === 'admin',  // Helper: is user an admin?
-    isApproved: userData?.isApproved || userData?.role === 'admin'  // Helper: is user approved?
-  };
+  // Memoized Context Value
+  const value = useMemo(
+    () => ({
+      user,
+      userData,
+      loading,
 
-  // 5. Provide the value to all children
+      // Helpers
+      isAdmin:
+        userData?.role === "admin",
+
+      isApproved:
+        userData?.isApproved ||
+        userData?.role === "admin",
+    }),
+    [user, userData, loading]
+  );
+
   return (
     <AuthContext.Provider value={value}>
       {children}
@@ -53,15 +122,15 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// 6. Custom hook to use the auth context
-// This makes it easy to access auth data in any component
+// Custom Hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
-  // Make sure useAuth is used inside AuthProvider
+
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error(
+      "useAuth must be used within AuthProvider"
+    );
   }
-  
+
   return context;
 };

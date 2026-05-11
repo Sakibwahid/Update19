@@ -20,13 +20,13 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="flex flex-col md:flex-row md:justify-between min-h-screen bg-linear-to-t from-[#1D5AD0] to-[#0c368a]">
-          <div className='fixed inset-0 bg-[url("/png.png")] bg-no-repeat bg-cover opacity-60'></div>
+          <div className='fixed inset-0 bg-[url("/png.webp")] bg-no-repeat bg-cover opacity-60'></div>
           <div>
             <Navbar></Navbar>
           </div>
-          <div className="flex-1 relative h-screen md:block flex justify-center items-center overflow-y-scroll">
+          <div className="flex-1 relative min-h-screen md:block flex justify-center items-center overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Home />} /> 
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
 
@@ -49,7 +49,7 @@ function App() {
                 <Route
                 path="/squadupdate"
                 element={
-                  <ProtectedRoute roles={["user", "admin"]}>
+                  <ProtectedRoute role={["user", "admin"]}>
                     <PlayerTableAssign />
                   </ProtectedRoute>
                 }
@@ -57,7 +57,7 @@ function App() {
               <Route
                 path="/admin/auction"
                 element={
-                  <ProtectedRoute roles={["admin"]}>
+                  <ProtectedRoute role={["admin"]}>
                     <AdminAuctionControl />
                   </ProtectedRoute>
                 }
@@ -65,7 +65,7 @@ function App() {
               <Route
                 path="/admin/updatetournament"
                 element={
-                  <ProtectedRoute roles={["admin"]}>
+                  <ProtectedRoute role={["admin"]}>
                     <UpdateTournament />
                   </ProtectedRoute>
                 }
@@ -73,7 +73,7 @@ function App() {
               <Route
                 path="/player-details"
                 element={
-                  <ProtectedRoute roles={["user", "admin"]}>
+                  <ProtectedRoute role={["user", "admin"]}>
                     <PlayerDetails />
                   </ProtectedRoute>
                 }
@@ -83,7 +83,7 @@ function App() {
               <Route
                 path="/tournamentstats"
                 element={
-                  <ProtectedRoute roles={["user", "admin"]}>
+                  <ProtectedRoute role={["user", "admin"]}>
                     <TournamentStats />
                   </ProtectedRoute>
                 }
@@ -91,7 +91,7 @@ function App() {
               <Route
                 path="/user/squad"
                 element={
-                  <ProtectedRoute roles={["user", "admin"]}>
+                  <ProtectedRoute role={["user", "admin"]}>
                     <DisplaySquad />
                   </ProtectedRoute>
                 }
@@ -99,7 +99,7 @@ function App() {
               <Route
                 path="/user/buildsquad"
                 element={
-                  <ProtectedRoute roles={["user", "admin"]}>
+                  <ProtectedRoute role={["user", "admin"]}>
                     <SquadBuilder />
                   </ProtectedRoute>
                 }

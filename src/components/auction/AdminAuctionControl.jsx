@@ -7,6 +7,7 @@ import {
   updateDoc,
   serverTimestamp,
   getDoc,
+  limit,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { useNavigate } from "react-router-dom";
@@ -54,7 +55,7 @@ const AdminAuctionControl = () => {
 
   const fetchAllPlayers = async () => {
     try {
-      const snapshot = await getDocs(collection(db, "players"));
+      const snapshot = await getDocs(collection(db, "players", limit(318)));
       const grouped = {};
 
       snapshot.docs.forEach((d) => {

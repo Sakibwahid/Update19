@@ -1,51 +1,35 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   collection,
   query,
   where,
   getDocs,
-  orderBy,
 } from "firebase/firestore";
 
 import { db } from "../../lib/firebase/config";
 import { Button } from "../ui/Button";
-import { Text } from "../ui/Text";
 import { useNavigate, useSearchParams } from "react-router-dom";
-
 import PlayerList from "../player/PlayerList";
 
 const CATEGORIES = [
-  "",
-  "GK",
-  "CB",
-  "LB",
-  "RB",
-  "LWB",
-  "RWB",
-  "CDM",
-  "CM",
-  "CAM",
-  "LM",
-  "RM",
-  "LW",
-  "RW",
-  "CF",
-  "ST",
+  "", "GK", "CB", "LB", "RB", "LWB", "RWB",
+  "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST",
 ];
 
-const OVERALLS = ["95","85","80"];
+const OVERALLS = ["95", "85", "80"];
 
 const PlayerFilter = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const category = searchParams.get("category") || "";
-  const maxOverall = searchParams.get("overall") || "95";
+  const maxOverall = Number(searchParams.get("overall") || 95);
 
-  const [players, setPlayers] = useState([]);
+  const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sortHighToLow, setSortHighToLow] = useState(true);
 
+  // 🚀 1. FETCH ONLY ONCE
   useEffect(() => {
     const fetchPlayers = async () => {
       setLoading(true);
@@ -53,31 +37,16 @@ const PlayerFilter = () => {
       try {
         const playersRef = collection(db, "players");
 
-        let playersQuery;
+        const q = query(playersRef); // ❌ no filters in Firestore
 
-        if (category) {
-          playersQuery = query(
-            playersRef,
-            where("Position", "==", category),
-            where("Overall", "<=", (maxOverall)),
-            orderBy("Overall", sortHighToLow ? "desc" : "asc")
-          );
-        } else {
-          playersQuery = query(
-            playersRef,
-            where("Overall", "<=", Number(maxOverall)),
-            orderBy("Overall", sortHighToLow ? "desc" : "asc")
-          );
-        }
+        const snapshot = await getDocs(q);
 
-        const snapshot = await getDocs(playersQuery);
-
-        const fetchedPlayers = snapshot.docs.map((doc) => ({
+        const data = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
-        setPlayers(fetchedPlayers);
+        setAllPlayers(data);
       } catch (error) {
         console.error("Error fetching players:", error);
       } finally {
@@ -86,13 +55,35 @@ const PlayerFilter = () => {
     };
 
     fetchPlayers();
-  }, [category, maxOverall, sortHighToLow]);
+  }, []);
 
+  // 🚀 2. LOCAL FILTERING (FAST)
+  const filteredPlayers = useMemo(() => {
+    let result = [...allPlayers];
+
+    if (category) {
+      result = result.filter(
+        (p) => p.Position === category
+      );
+    }
+
+    result = result.filter(
+      (p) => Number(p.Overall) <= maxOverall
+    );
+
+    result.sort((a, b) =>
+      sortHighToLow
+        ? b.Overall - a.Overall
+        : a.Overall - b.Overall
+    );
+
+    return result;
+  }, [allPlayers, category, maxOverall, sortHighToLow]);
+
+  // 🚀 3. URL PARAM UPDATE
   const updateParam = (key, value) => {
     const params = new URLSearchParams(searchParams);
-
     params.set(key, value);
-
     setSearchParams(params);
   };
 
@@ -108,27 +99,19 @@ const PlayerFilter = () => {
 
   return (
     <div className="h-full flex flex-col min-h-0">
+
       {/* FILTER BAR */}
       <div className="flex flex-col gap-3 mb-2 shrink-0">
+
         <div className="flex items-center gap-3">
+
           <select
             value={category}
             onChange={(e) => updateParam("category", e.target.value)}
-            className="
-              border border-white/10
-              bg-white/5
-              text-white
-              px-3 py-2
-              rounded-md
-              focus:outline-none
-            "
+            className="border border-white/10 bg-white/5 text-white px-3 py-2 rounded-md"
           >
             {CATEGORIES.map((cat) => (
-              <option
-                key={cat}
-                value={cat}
-                className="bg-[#0d1117]"
-              >
+              <option key={cat} value={cat} className="bg-[#0d1117]">
                 {cat || "All Positions"}
               </option>
             ))}
@@ -137,48 +120,34 @@ const PlayerFilter = () => {
           <select
             value={maxOverall}
             onChange={(e) => updateParam("overall", e.target.value)}
-            className="
-              border border-white/10
-              bg-white/5
-              text-white
-              px-3 py-2
-              rounded-md
-              focus:outline-none
-            "
+            className="border border-white/10 bg-white/5 text-white px-3 py-2 rounded-md"
           >
-            {OVERALLS.map((overall) => (
-              <option
-                key={overall}
-                value={overall}
-                className="bg-[#0d1117]"
-              >
-              {overall}
+            {OVERALLS.map((o) => (
+              <option key={o} value={o} className="bg-[#0d1117]">
+                {o}
               </option>
             ))}
           </select>
-          <Button
-            variant="filled"
-            onClick={toggleSort}
-            className="rounded-md"
-          >
+
+          <Button onClick={toggleSort}>
             {sortHighToLow ? "High → Low" : "Low → High"}
           </Button>
-          
+
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          
-        </div>
       </div>
 
       {/* PLAYER LIST */}
       <div className="flex-1 overflow-y-auto pr-1">
+
         <PlayerList
-          players={players}
+          players={filteredPlayers}
           loading={loading}
           onPlayerClick={openPlayerDetails}
         />
+
       </div>
+
     </div>
   );
 };

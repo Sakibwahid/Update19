@@ -1,99 +1,226 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+
 import { Text } from "./Text";
 import { NavItem } from "./NavItem";
-import { Home, User, Info, Lock, Menu, X } from "lucide-react";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+
+import {
+  Home,
+  Info,
+  Lock,
+  Menu,
+  X,
+  Trophy,
+  Users,
+} from "lucide-react";
+
+import { signOut } from "firebase/auth";
+import { auth } from "../../lib/firebase/config";
+
 import { useNavigate } from "react-router-dom";
-import PlayerFilter from "../player/PlayerFilter";
+
+import { useAuth } from "../../context/AuthContext";
 
 export function Navbar() {
-  const [userData, setUserData] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+
   const navigate = useNavigate();
-  const auth = getAuth();
 
-  // Track Firebase auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserData({ email: user.email, uid: user.uid });
-      } else {
-        setUserData(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [auth]);
+  // Auth Context
+  const { user, userData } = useAuth();
 
+  // Dynamic Home Route
+  const homeLink = useMemo(() => {
+    if (userData?.role === "admin") {
+      return "/admin";
+    }
+
+    if (userData?.role === "user") {
+      return "/user";
+    }
+
+    return "/";
+  }, [userData]);
+
+  // Toggle Mobile Menu
   const toggleMenu = () => {
-    setMobileMenu(prev => !prev);
+    setMobileMenu((prev) => !prev);
   };
 
-  const handleLogout = async () => {
+  // Logout Handler
+  const handleLogout = async (e) => {
+    e.preventDefault();
+
     try {
       await signOut(auth);
-      setUserData(null);
-      navigate("/login"); // redirect after logout
-    } catch (err) {
-      console.error("Logout error:", err);
+
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout Error:", error);
     }
   };
 
-  return (
-    <nav className="relative md:min-h-screen flex md:flex-col justify-between items-center text-white py-6 px-4">
-      <Text variant="subheading" className="text-xl text-white font-semibold">
-        Nilam420
-      </Text>
+  // Close Mobile Menu After Navigation
+  const closeMenu = () => {
+    setMobileMenu(false);
+  };
 
-      {/* Desktop Menu */}
-      <div className="hidden md:block">
-        <ul className="flex md:flex-col items-center gap-6 w-full text-left">
-          <NavItem label="Home" link="/" Icon={Home} />
-          <NavItem label="About" link="/about" Icon={Info} />
-          {userData && (
-            <NavItem
-              label="Logout"
-              link="#"
-              Icon={Lock}
-              onClick={(e) => {
-                e.preventDefault();
-                handleLogout();
-              }}
-            />
-          )}
-        </ul>
+  return (
+    <nav
+      className="
+        relative
+        z-50
+        flex
+        md:min-h-screen
+        md:w-24
+        flex-row
+        md:flex-col
+        justify-between
+        items-center
+        px-4
+        py-5
+        text-white
+      "
+    >
+      {/* Logo */}
+      <div
+        onClick={() => navigate(homeLink)}
+        className="cursor-pointer"
+      >
+        <Text
+          variant="subheading"
+          className="
+            text-xl
+            font-bold
+            tracking-wide
+            text-white
+          "
+        >
+          Nilam420
+        </Text>
       </div>
 
-      {/* Mobile Menu */}
-      <div className="md:hidden flex items-center">
-        <button onClick={toggleMenu}>
-          {mobileMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+      {/* Desktop Navigation */}
+      <div className="hidden md:flex flex-col items-center gap-6">
+        <NavItem
+          label="Home"
+          link={homeLink}
+          Icon={Home}
+        />
 
-        {mobileMenu && (
-          <div className="absolute top-14 right-0 h-screen backdrop-blur-xl bg-white/5 rounded-xl shadow-lg p-4 z-50">
-            <ul className="flex flex-col items-center gap-4 text-left">
-              <NavItem label="Home" link="/" Icon={Home} />
-              <NavItem label="Players" link={<PlayerFilter />} Icon={User} />
-              <NavItem label="About" link="/about" Icon={Info} />
-              {userData && (
+        <NavItem
+          label="Auction"
+          link="/auction"
+          Icon={Trophy}
+        />
+
+        {user && (
+          <NavItem
+            label="Squad"
+            link="/user/squad"
+            Icon={Users}
+          />
+        )}
+
+        <NavItem
+          label="About"
+          link="/about"
+          Icon={Info}
+        />
+
+        {user && (
+          <NavItem
+            label="Logout"
+            link="#"
+            Icon={Lock}
+            onClick={handleLogout}
+          />
+        )}
+      </div>
+
+      {/* Mobile Menu Button */}
+      <div className="md:hidden">
+        <button
+          onClick={toggleMenu}
+          aria-label="Toggle Menu"
+          className="relative z-50"
+        >
+          {mobileMenu ? (
+            <X className="w-6 h-6" />
+          ) : (
+            <Menu className="w-6 h-6" />
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Drawer */}
+      {mobileMenu && (
+        <div
+          className="
+            fixed
+            inset-0
+            bg-black/40
+            backdrop-blur-md
+            z-40
+          "
+        >
+          <div
+            className="
+              absolute
+              top-0
+              right-0
+              h-full
+              w-64
+              bg-white/10
+              backdrop-blur-lg
+              border-l
+              border-white/10
+              shadow-2xl
+              p-6
+            "
+          >
+            <ul className="flex flex-col gap-6 mt-16">
+              <NavItem
+                label="Home"
+                link={homeLink}
+                Icon={Home}
+                onClick={closeMenu}
+              />
+
+              <NavItem
+                label="Auction"
+                link="/auction"
+                Icon={Trophy}
+                onClick={closeMenu}
+              />
+
+              {user && (
+                <NavItem
+                  label="Squad"
+                  link="/user/squad"
+                  Icon={Users}
+                  onClick={closeMenu}
+                />
+              )}
+
+              <NavItem
+                label="About"
+                link="/about"
+                Icon={Info}
+                onClick={closeMenu}
+              />
+
+              {user && (
                 <NavItem
                   label="Logout"
                   link="#"
                   Icon={Lock}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleLogout();
-                  }}
+                  onClick={handleLogout}
                 />
               )}
             </ul>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </nav>
   );
 }
-
-
-
-
