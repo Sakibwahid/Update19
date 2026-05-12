@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   collection,
   getDocs,
@@ -6,7 +6,8 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  getDoc,
+  onSnapshot,
+  query,
   limit,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
@@ -29,6 +30,7 @@ const TEAMS = [
 
 const STORAGE_KEY = "auction_state_v3";
 const MIN_RATING = 82;
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const AdminAuctionControl = () => {
   const navigate = useNavigate();
@@ -43,46 +45,71 @@ const AdminAuctionControl = () => {
   const [seasonId, setSeasonId] = useState("S3");
   const [soldFlash, setSoldFlash] = useState(null);
 
-  const fetchCurrentPlayer = async () => {
-    try {
-      const ref = doc(db, "currentPlayer", "active");
-      const snap = await getDoc(ref);
-      if (snap.exists()) setCurrentPlayer(snap.data());
-    } catch (err) {
-      console.error("Fetch current player error:", err);
-    }
-  };
+  // Keep ref to unsubscribe the live listener on unmount
+  const unsubRef = useRef(null);
 
+  /* ─────────────────────────────────────────
+     LIVE LISTENER — currentPlayer/active
+     Replaces getDoc — updates all screens
+     instantly whenever any client writes to it
+  ───────────────────────────────────────── */
+  useEffect(() => {
+    const ref = doc(db, "currentPlayer", "active");
+    unsubRef.current = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) setCurrentPlayer(snap.data());
+        else setCurrentPlayer(null);
+      },
+      (err) => console.error("currentPlayer listener error:", err),
+    );
+    return () => unsubRef.current?.();
+  }, []);
+
+  /* ─────────────────────────────────────────
+     FETCH ALL PLAYERS (once, with cache)
+  ───────────────────────────────────────── */
   const fetchAllPlayers = async () => {
     try {
-      const snapshot = await getDocs(collection(db, "players", limit(318)));
+      // limit(318) correctly applied as a query modifier
+      const q = query(collection(db, "players"), limit(318));
+      const snapshot = await getDocs(q);
       const grouped = {};
 
       snapshot.docs.forEach((d) => {
         const player = d.data();
-
-        // Filter: only include players rated MIN_RATING (83) or above.
-        // Checks both "Overall" and "Rating" fields to cover any field name variation.
-        const rating = player.Overall ?? player.Rating ?? 0;
+        const rating = Number(player.Overall ?? player.Rating ?? 0);
         if (rating < MIN_RATING) return;
-
         if (!grouped[player.Position]) grouped[player.Position] = [];
         grouped[player.Position].push(player);
       });
 
       setAvailablePlayers(grouped);
+      return grouped;
     } catch (err) {
       console.error("Fetch players error:", err);
     }
   };
 
+  /* ─────────────────────────────────────────
+     RESTORE FROM CACHE OR FETCH FRESH
+  ───────────────────────────────────────── */
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(STORAGE_KEY);
       if (savedState) {
         const parsed = JSON.parse(savedState);
-        if (parsed.availablePlayers) setAvailablePlayers(parsed.availablePlayers);
-        if (parsed.selectedPosition) setSelectedPosition(parsed.selectedPosition);
+        const ageMs = Date.now() - (parsed.savedAt ?? 0);
+
+        if (ageMs > CACHE_MAX_AGE_MS) {
+          // Cache expired — fetch fresh
+          localStorage.removeItem(STORAGE_KEY);
+          fetchAllPlayers();
+        } else {
+          // Cache valid — restore
+          if (parsed.availablePlayers) setAvailablePlayers(parsed.availablePlayers);
+          if (parsed.selectedPosition) setSelectedPosition(parsed.selectedPosition);
+        }
       } else {
         fetchAllPlayers();
       }
@@ -90,17 +117,26 @@ const AdminAuctionControl = () => {
       localStorage.removeItem(STORAGE_KEY);
       fetchAllPlayers();
     }
-    fetchCurrentPlayer();
   }, []);
 
+  /* ─────────────────────────────────────────
+     PERSIST TO CACHE (with timestamp)
+  ───────────────────────────────────────── */
   useEffect(() => {
     if (!Object.keys(availablePlayers).length) return;
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ availablePlayers, selectedPosition }),
+      JSON.stringify({
+        availablePlayers,
+        selectedPosition,
+        savedAt: Date.now(),
+      }),
     );
   }, [availablePlayers, selectedPosition]);
 
+  /* ─────────────────────────────────────────
+     HELPERS
+  ───────────────────────────────────────── */
   const getPlayersForPosition = (position) => {
     if (position === "LW")
       return [...(availablePlayers["LW"] || []), ...(availablePlayers["LM"] || [])];
@@ -144,7 +180,7 @@ const AdminAuctionControl = () => {
         { ...randomPlayer, updatedAt: serverTimestamp() },
         { merge: true },
       );
-      setCurrentPlayer(randomPlayer);
+      // No need to setCurrentPlayer here — onSnapshot picks it up automatically
     } catch (err) {
       console.error("Choose player error:", err);
     } finally {
@@ -168,6 +204,7 @@ const AdminAuctionControl = () => {
     setSelectedTeam(null);
     setPrices({});
 
+    // All three writes fire in parallel, none awaited
     updateDoc(doc(db, "players", playerId), {
       currentTeamId: teamId,
       currentSeasonId: seasonId,
@@ -201,7 +238,6 @@ const AdminAuctionControl = () => {
       localStorage.removeItem(STORAGE_KEY);
       setAvailablePlayers({});
       setSelectedPosition(null);
-      setCurrentPlayer(null);
       setSelectedTeam(null);
       setPrices({});
       setSoldFlash(null);

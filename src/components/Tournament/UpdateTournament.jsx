@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   doc,
   increment,
@@ -7,6 +8,7 @@ import {
   serverTimestamp,
   getDoc,
 } from "firebase/firestore";
+
 import { db } from "../../lib/firebase/config";
 import { Text } from "../ui/Text";
 import { Button } from "../ui/Button";

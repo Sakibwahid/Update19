@@ -9,14 +9,17 @@ const useCurrentPlayer = () => {
   useEffect(() => {
     const ref = doc(db, "currentPlayer", "active");
 
-    const unsubscribe = onSnapshot(ref, (snap) => {
-      if (snap.exists()) {
-        setCurrentPlayer(snap.data());
-      } else {
-        setCurrentPlayer(null);
-      }
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        setCurrentPlayer(snap.exists() ? snap.data() : null);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("currentPlayer listener error:", err);
+        setLoading(false); // stop spinner even on network/rules error
+      },
+    );
 
     return () => unsubscribe();
   }, []);
