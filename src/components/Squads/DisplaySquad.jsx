@@ -28,9 +28,13 @@ const getGroup = (pos) => {
   return "Others";
 };
 
-// Sum soldPrice for an array of players
 const sumValue = (list) =>
   list.reduce((acc, p) => acc + (p.soldPrice ?? 0), 0);
+
+/* ─────────────────────────────────────────
+   GLOBAL CACHE (persists across navigation)
+───────────────────────────────────────── */
+const squadCache = new Map();
 
 const DisplaySquad = () => {
   const [players, setPlayers] = useState([]);
@@ -56,22 +60,37 @@ const DisplaySquad = () => {
     fetchUserTeam();
   }, []);
 
-  /* ---------------- FETCH SQUAD ---------------- */
+  /* ---------------- FETCH SQUAD (CACHED + ZERO FLICKER) ---------------- */
   useEffect(() => {
     if (!selectedTeamId || !seasonId) return;
 
+    const key = `${selectedTeamId}_${seasonId}_${position}`;
+
     const fetchPlayers = async () => {
+      // 🔥 INSTANT CACHE HIT (NO LOADING)
+      if (squadCache.has(key)) {
+        setPlayers(squadCache.get(key));
+        return;
+      }
+
       setLoading(true);
+
       try {
         const seasonQuery = query(
           collection(db, "season_players"),
           where("teamId", "==", selectedTeamId),
           where("seasonId", "==", seasonId)
         );
+
         const seasonSnap = await getDocs(seasonQuery);
-        const seasonData = seasonSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        const seasonData = seasonSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
 
         if (seasonData.length === 0) {
+          squadCache.set(key, []);
           setPlayers([]);
           setLoading(false);
           return;
@@ -80,6 +99,7 @@ const DisplaySquad = () => {
         const playerPromises = seasonData.map((sp) =>
           getDoc(doc(db, "players", sp.playerId))
         );
+
         const playerSnaps = await Promise.all(playerPromises);
 
         const playerMap = {};
@@ -97,6 +117,10 @@ const DisplaySquad = () => {
         }
 
         merged.sort((a, b) => (b.Overall || 0) - (a.Overall || 0));
+
+        // 🔥 SAVE TO CACHE
+        squadCache.set(key, merged);
+
         setPlayers(merged);
       } catch (err) {
         console.error("Error fetching squad:", err);
@@ -118,7 +142,7 @@ const DisplaySquad = () => {
 
   const totalValue = sumValue(players);
 
-  if (loading) return <Loadin>Stars are loading...</Loadin>;
+  if (loading) return <Loadin>Players are loading...</Loadin>;
 
   return (
     <div className="p-4 max-h-screen min-w-full flex flex-col mx-auto space-y-4">
@@ -144,8 +168,22 @@ const DisplaySquad = () => {
             <Input
               label="Position"
               options={[
-                "All players", "GK", "CB", "LB", "RB", "LWB", "RWB",
-                "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST",
+                "All players",
+                "GK",
+                "CB",
+                "LB",
+                "RB",
+                "LWB",
+                "RWB",
+                "CDM",
+                "CM",
+                "CAM",
+                "LM",
+                "RM",
+                "LW",
+                "RW",
+                "CF",
+                "ST",
               ]}
               onChange={(e) => setPosition(e.target.value)}
             />
@@ -180,24 +218,28 @@ const DisplaySquad = () => {
             </div>
           </div>
 
-          {/* SQUAD VALUE SUMMARY */}
+          {/* VALUE SUMMARY */}
           {players.length > 0 && (
             <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-5 py-4 flex flex-col gap-3">
 
-              {/* Total */}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-widest text-white/40">
                   Total Squad Value
                 </span>
-                <span className="text-xl font-bold text-white tracking-tight">
-                  {totalValue}M
-                </span>
+
+                <div className="flex gap-2 justify-center items-center">
+                  <span className="text-xl font-bold text-white tracking-tight">
+                    {totalValue}M
+                  </span>
+
+                  <span className="text-red-400 text-xl font-medium tracking-tight">
+                    ({Number(2200 - totalValue)}M)
+                  </span>
+                </div>
               </div>
 
-              {/* Divider */}
               <div className="h-px bg-white/10" />
 
-              {/* Per-group breakdown */}
               <div className="flex justify-between gap-x-6 gap-y-2">
                 {Object.entries(groupedPlayers).map(([group, list]) => {
                   const groupValue = sumValue(list);
@@ -206,9 +248,11 @@ const DisplaySquad = () => {
                       <span className="text-xs text-white/40 uppercase tracking-widest">
                         {group}
                       </span>
+
                       <span className="text-sm font-semibold text-white">
                         {groupValue}M
                       </span>
+
                       <span className="text-[10px] text-white/25">
                         ({list.length} players)
                       </span>
@@ -216,7 +260,6 @@ const DisplaySquad = () => {
                   );
                 })}
               </div>
-
             </div>
           )}
 
@@ -227,6 +270,7 @@ const DisplaySquad = () => {
                 <Text className="text-gray-300 text-xl font-semibold">
                   {group}
                 </Text>
+
                 <span className="text-sm text-white/40 font-medium">
                   {sumValue(list)}M
                 </span>
@@ -239,7 +283,6 @@ const DisplaySquad = () => {
                 >
                   <img
                     src={`/player_photos/${p.playerId || p.id}.png`}
-                    alt={p.Name}
                     className="w-14 h-14 rounded-full object-cover"
                   />
 
@@ -249,13 +292,15 @@ const DisplaySquad = () => {
                     </Text>
                   </div>
 
-                  <div className="flex justify-between items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Text className="text-gray-800 font-semibold text-xl">
                       {p.Position}
                     </Text>
+
                     <Text className="text-black font-bold text-xl">
                       {p.Overall}
                     </Text>
+
                     <Text className="text-blue-700 font-bold text-xl">
                       {p.soldPrice ?? "—"}M
                     </Text>
@@ -266,12 +311,13 @@ const DisplaySquad = () => {
           ))}
 
           {players.length === 0 && (
-            <p className="text-sm text-gray-500 text-center">No players found</p>
+            <p className="text-sm text-gray-500 text-center">
+              No players found
+            </p>
           )}
         </>
       )}
 
-      {/* FIELD VIEW */}
       {viewMode === "squad" && <FieldView players={players} />}
     </div>
   );

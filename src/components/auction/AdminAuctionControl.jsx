@@ -17,7 +17,17 @@ import { Text } from "../ui/Text";
 import PlayerCardDemo from "../player/PlayerCardDemo";
 
 const POSITIONS = [
-  "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "CF", "ST",
+  "GK",
+  "CB",
+  "LB",
+  "RB",
+  "CDM",
+  "CM",
+  "CAM",
+  "LW",
+  "RW",
+  "CF",
+  "ST",
 ];
 
 const TEAMS = [
@@ -29,7 +39,7 @@ const TEAMS = [
 ];
 
 const STORAGE_KEY = "auction_state_v3";
-const MIN_RATING = 82;
+const MIN_RATING = 83;
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const AdminAuctionControl = () => {
@@ -107,8 +117,10 @@ const AdminAuctionControl = () => {
           fetchAllPlayers();
         } else {
           // Cache valid — restore
-          if (parsed.availablePlayers) setAvailablePlayers(parsed.availablePlayers);
-          if (parsed.selectedPosition) setSelectedPosition(parsed.selectedPosition);
+          if (parsed.availablePlayers)
+            setAvailablePlayers(parsed.availablePlayers);
+          if (parsed.selectedPosition)
+            setSelectedPosition(parsed.selectedPosition);
         }
       } else {
         fetchAllPlayers();
@@ -139,9 +151,15 @@ const AdminAuctionControl = () => {
   ───────────────────────────────────────── */
   const getPlayersForPosition = (position) => {
     if (position === "LW")
-      return [...(availablePlayers["LW"] || []), ...(availablePlayers["LM"] || [])];
+      return [
+        ...(availablePlayers["LW"] || []),
+        ...(availablePlayers["LM"] || []),
+      ];
     if (position === "RW")
-      return [...(availablePlayers["RW"] || []), ...(availablePlayers["RM"] || [])];
+      return [
+        ...(availablePlayers["RW"] || []),
+        ...(availablePlayers["RM"] || []),
+      ];
     return availablePlayers[position] || [];
   };
 
@@ -166,7 +184,9 @@ const AdminAuctionControl = () => {
       const randomIndex = Math.floor(Math.random() * players.length);
       const randomPlayer = players[randomIndex];
 
-      const positionGroup = [...(availablePlayers[randomPlayer.Position] || [])];
+      const positionGroup = [
+        ...(availablePlayers[randomPlayer.Position] || []),
+      ];
       const idx = positionGroup.findIndex((p) => p.ID === randomPlayer.ID);
       if (idx > -1) positionGroup.splice(idx, 1);
 
@@ -175,11 +195,10 @@ const AdminAuctionControl = () => {
         [randomPlayer.Position]: positionGroup,
       }));
 
-      await setDoc(
-        doc(db, "currentPlayer", "active"),
-        { ...randomPlayer, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
+      await setDoc(doc(db, "currentPlayer", "active"), {
+        ...randomPlayer,
+        updatedAt: serverTimestamp(),
+      });
       // No need to setCurrentPlayer here — onSnapshot picks it up automatically
     } catch (err) {
       console.error("Choose player error:", err);
@@ -232,7 +251,9 @@ const AdminAuctionControl = () => {
   };
 
   const handleResetAuction = async () => {
-    const confirmReset = window.confirm("Reset auction state and local storage?");
+    const confirmReset = window.confirm(
+      "Reset auction state and local storage?",
+    );
     if (!confirmReset) return;
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -253,15 +274,19 @@ const AdminAuctionControl = () => {
 
   return (
     <div className="min-h-screen overflow-x-hidden text-white flex flex-col px-3 sm:px-4 py-3 sm:py-4 box-border">
-
       {/* HEADER */}
       <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-4 sm:px-6 py-3 mb-3 flex items-center justify-between shrink-0 gap-3">
-        <Text variant="subheading" className="text-lg sm:text-2xl font-semibold tracking-wide truncate">
+        <Text
+          variant="subheading"
+          className="text-lg sm:text-2xl font-semibold tracking-wide truncate"
+        >
           Auction Panel
         </Text>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="hidden sm:block text-xs text-white/40 uppercase tracking-widest">Season</span>
+          <span className="hidden sm:block text-xs text-white/40 uppercase tracking-widest">
+            Season
+          </span>
           <input
             value={seasonId}
             onChange={(e) => setSeasonId(e.target.value)}
@@ -278,25 +303,32 @@ const AdminAuctionControl = () => {
 
       {/* MAIN PANEL */}
       <div className="flex-1 min-h-0 backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col lg:flex-row">
-
         {/* ── COLUMN 1 ── */}
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">Currently on Auction</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              Currently on Auction
+            </span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 shrink-0 mb-4">
             <Button
               onClick={chooseRandomPosition}
-              disabled={POSITIONS.every((p) => getPlayersForPosition(p).length === 0)}
+              disabled={POSITIONS.every(
+                (p) => getPlayersForPosition(p).length === 0,
+              )}
               className="flex-1 text-sm"
             >
               Random Position
             </Button>
             <Button
               onClick={chooseRandomPlayer}
-              disabled={loading || !selectedPosition || getPlayersForPosition(selectedPosition).length === 0}
+              disabled={
+                loading ||
+                !selectedPosition ||
+                getPlayersForPosition(selectedPosition).length === 0
+              }
               className="flex-1 text-sm"
             >
               Random Player
@@ -308,15 +340,22 @@ const AdminAuctionControl = () => {
               {selectedPosition ? (
                 <div className="w-full inline-flex justify-between items-center rounded-xl px-4 sm:px-5 py-2 gap-3">
                   <span className="text-[10px] sm:text-xs text-white/40 uppercase tracking-widest leading-tight">
-                    Auctioning<br />Position
+                    Auctioning
+                    <br />
+                    Position
                   </span>
-                  <Text variant="heading" className="text-3xl sm:text-4xl font-semibold tracking-tight shrink-0">
+                  <Text
+                    variant="heading"
+                    className="text-3xl sm:text-4xl font-semibold tracking-tight shrink-0"
+                  >
                     {selectedPosition}
                   </Text>
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-2 bg-white/[0.02] border border-dashed border-white/10 rounded-xl px-5 py-2">
-                  <span className="text-xs text-white/20 uppercase tracking-widest">No position selected</span>
+                  <span className="text-xs text-white/20 uppercase tracking-widest">
+                    No position selected
+                  </span>
                 </div>
               )}
             </div>
@@ -342,7 +381,9 @@ const AdminAuctionControl = () => {
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">Player Assign</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              Player Assign
+            </span>
           </div>
 
           <div className="flex flex-col gap-2 flex-1 min-h-0">
@@ -358,11 +399,12 @@ const AdminAuctionControl = () => {
                     px-3 sm:px-4 py-3
                     rounded-xl border
                     transition-all duration-200 text-left min-w-0
-                    ${justSold
-                      ? "bg-white/20 border-white/40"
-                      : isSelected
-                        ? "bg-white/20 border-[#41ffee]"
-                        : "bg-white/5 border-white/8 hover:bg-white/10"
+                    ${
+                      justSold
+                        ? "bg-white/20 border-white/40"
+                        : isSelected
+                          ? "bg-white/20 border-[#41ffee]"
+                          : "bg-white/5 border-white/8 hover:bg-white/10"
                     }
                   `}
                 >
@@ -370,7 +412,9 @@ const AdminAuctionControl = () => {
                     className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/10"
                     style={{ backgroundColor: team.color }}
                   />
-                  <span className="flex-1 text-sm font-medium truncate">{team.name}</span>
+                  <span className="flex-1 text-sm font-medium truncate">
+                    {team.name}
+                  </span>
                   <div
                     onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 shrink-0"
@@ -380,7 +424,9 @@ const AdminAuctionControl = () => {
                       type="number"
                       placeholder="0"
                       value={prices[team.id] || ""}
-                      onChange={(e) => handlePriceChange(team.id, e.target.value)}
+                      onChange={(e) =>
+                        handlePriceChange(team.id, e.target.value)
+                      }
                       className="w-12 sm:w-16 bg-transparent text-sm text-right text-white placeholder-white/20 focus:outline-none"
                     />
                   </div>
@@ -396,9 +442,10 @@ const AdminAuctionControl = () => {
               shrink-0 mt-4 w-full py-3 rounded-xl
               text-sm font-semibold uppercase tracking-widest
               transition-all duration-200
-              ${!canSell
-                ? "bg-white/5 border border-white/10 text-white/25 cursor-not-allowed"
-                : "bg-white/10 border border-white/25 text-white hover:bg-white/15 hover:border-white/40 active:scale-[0.98]"
+              ${
+                !canSell
+                  ? "bg-white/5 border border-white/10 text-white/25 cursor-not-allowed"
+                  : "bg-white/10 border border-white/25 text-white hover:bg-white/15 hover:border-white/40 active:scale-[0.98]"
               }
             `}
           >
@@ -413,7 +460,9 @@ const AdminAuctionControl = () => {
         <div className="flex-1 flex flex-col p-4 sm:p-5 min-w-0">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <span className="w-1.5 h-5 rounded-full bg-white/30 inline-block" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white">More Features</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-white">
+              More Features
+            </span>
           </div>
 
           <div className="flex-1 flex items-center justify-center py-10">
@@ -421,11 +470,12 @@ const AdminAuctionControl = () => {
               <div className="w-10 h-10 mx-auto rounded-full border border-dashed border-white/15 flex items-center justify-center">
                 <span className="text-white/20 text-lg">+</span>
               </div>
-              <span className="block text-xs text-white/20 uppercase tracking-widest">Coming soon</span>
+              <span className="block text-xs text-white/20 uppercase tracking-widest">
+                Coming soon
+              </span>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

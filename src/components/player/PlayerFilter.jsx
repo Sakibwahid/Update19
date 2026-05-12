@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-
+import { collection, query, getDocs, limit } from "firebase/firestore";
 import { db } from "../../lib/firebase/config";
 import { Button } from "../ui/Button";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -9,24 +8,15 @@ import { ArrowUpDown } from "lucide-react";
 
 const CATEGORIES = [
   "",
-  "GK",
-  "CB",
-  "LB",
-  "RB",
-  "LWB",
-  "RWB",
-  "CDM",
-  "CM",
-  "CAM",
-  "LM",
-  "RM",
-  "LW",
-  "RW",
-  "CF",
-  "ST",
+  "GK", "CB", "LB", "RB", "LWB", "RWB",
+  "CDM", "CM", "CAM", "LM", "RM",
+  "LW", "RW", "CF", "ST",
 ];
 
 const OVERALLS = ["95", "85", "80"];
+
+const PLAYER_CACHE_KEY = "player_filter_cache";
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const PlayerFilter = () => {
   const navigate = useNavigate();
@@ -39,24 +29,45 @@ const PlayerFilter = () => {
   const [loading, setLoading] = useState(false);
   const [sortHighToLow, setSortHighToLow] = useState(true);
 
-  // 🚀 1. FETCH ONLY ONCE
+  /* ─────────────────────────────────────────
+     FETCH — localStorage first, Firestore
+     only on first visit or cache expiry
+  ───────────────────────────────────────── */
   useEffect(() => {
-    const fetchPlayers = async () => {
-      setLoading(true);
-
+    const loadPlayers = async () => {
+      // 1. Try cache first — instant, zero Firestore reads
       try {
-        const playersRef = collection(db, "players");
+        const cached = localStorage.getItem(PLAYER_CACHE_KEY);
+        if (cached) {
+          const { data, savedAt } = JSON.parse(cached);
+          if (Date.now() - savedAt < CACHE_MAX_AGE_MS) {
+            setAllPlayers(data);
+            return; // cache hit — done
+          }
+          localStorage.removeItem(PLAYER_CACHE_KEY); // expired
+        }
+      } catch {
+        localStorage.removeItem(PLAYER_CACHE_KEY); // corrupted
+      }
 
-        const q = query(playersRef); // ❌ no filters in Firestore
-
+      // 2. Cache miss or expired — fetch from Firestore
+      setLoading(true);
+      try {
+        const q = query(collection(db, "players"), limit(500));
         const snapshot = await getDocs(q);
-
         const data = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
+          Overall: Number(doc.data().Overall), // cast once at fetch time
         }));
 
         setAllPlayers(data);
+
+        // Persist for next visit
+        localStorage.setItem(
+          PLAYER_CACHE_KEY,
+          JSON.stringify({ data, savedAt: Date.now() }),
+        );
       } catch (error) {
         console.error("Error fetching players:", error);
       } finally {
@@ -64,10 +75,13 @@ const PlayerFilter = () => {
       }
     };
 
-    fetchPlayers();
+    loadPlayers();
   }, []);
 
-  // 🚀 2. LOCAL FILTERING (FAST)
+  /* ─────────────────────────────────────────
+     LOCAL FILTERING — your original logic,
+     unchanged
+  ───────────────────────────────────────── */
   const filteredPlayers = useMemo(() => {
     let result = [...allPlayers];
 
@@ -84,26 +98,25 @@ const PlayerFilter = () => {
     return result;
   }, [allPlayers, category, maxOverall, sortHighToLow]);
 
-  // 🚀 3. URL PARAM UPDATE
+  /* ─────────────────────────────────────────
+     URL PARAMS — your original logic
+  ───────────────────────────────────────── */
   const updateParam = (key, value) => {
     const params = new URLSearchParams(searchParams);
     params.set(key, value);
     setSearchParams(params);
   };
 
-  const toggleSort = () => {
-    setSortHighToLow((prev) => !prev);
-  };
+  const toggleSort = () => setSortHighToLow((prev) => !prev);
 
   const openPlayerDetails = (player) => {
-    navigate("/player-details", {
-      state: { player },
-    });
+    navigate("/player-details", { state: { player } });
   };
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* FILTER BAR */}
+
+      {/* FILTER BAR — your original design */}
       <div className="flex flex-col gap-3 mb-2 shrink-0">
         <div className="flex justify-between items-center gap-3">
           <div className="flex gap-2">
@@ -142,7 +155,7 @@ const PlayerFilter = () => {
         </div>
       </div>
 
-      {/* PLAYER LIST */}
+      {/* PLAYER LIST — your original */}
       <div className="flex-1 w-full overflow-y-scroll pr-1">
         <PlayerList
           players={filteredPlayers}
@@ -150,6 +163,7 @@ const PlayerFilter = () => {
           onPlayerClick={openPlayerDetails}
         />
       </div>
+
     </div>
   );
 };
