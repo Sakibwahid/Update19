@@ -15,8 +15,14 @@ import PlayerTableAssign from "./components/Squads/PlayerTableAssign";
 import DisplaySquad from "./components/Squads/DisplaySquad";
 import SquadBuilder from "./components/Squads/SquadBuilder";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const queryClient = new QueryClient();
+
+
 function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <Router>
         <div className="flex flex-col md:flex-row md:justify-between min-h-screen bg-linear-to-t from-[#1D5AD0] to-[#0c368a]">
@@ -109,6 +115,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
+    </QueryClientProvider>
   );
 }
 export default App;
