@@ -1,3 +1,5 @@
+// UpdateTournament.jsx
+
 import { useState } from "react";
 
 import {
@@ -6,12 +8,13 @@ import {
   writeBatch,
   collection,
   serverTimestamp,
-  getDoc,
 } from "firebase/firestore";
 
 import { db } from "../../lib/firebase/config";
+
 import { Text } from "../ui/Text";
 import { Button } from "../ui/Button";
+
 import TournamentStats from "./TournamentStats";
 
 const TEAMS = [
@@ -24,10 +27,11 @@ const TEAMS = [
 
 const POSITIONS = ["1st", "2nd", "3rd", "4th", "5th"];
 
+const SEASONS = ["S3", "S4", "S5"];
+
 const UpdateTournament = () => {
   const [placements, setPlacements] = useState({});
-
-  /* ================= HELPERS ================= */
+  const [selectedSeason, setSelectedSeason] = useState("S3");
 
   const getStatsUpdate = (position) => {
     switch (position) {
@@ -36,21 +40,25 @@ const UpdateTournament = () => {
           totalPoints: increment(3),
           firstCount: increment(1),
         };
+
       case "2nd":
         return {
           totalPoints: increment(2),
           secondCounts: increment(1),
         };
+
       case "3rd":
         return {
           totalPoints: increment(1),
-          thirdCount: increment(1), // added for consistency
+          thirdCount: increment(1),
         };
+
       case "4th":
       case "5th":
         return {
           zeroCounts: increment(1),
         };
+
       default:
         return {};
     }
@@ -63,19 +71,16 @@ const UpdateTournament = () => {
     }));
   };
 
-  /* ================= SUBMIT ================= */
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Ensure all teams selected
     if (Object.keys(placements).length !== TEAMS.length) {
       alert("Please assign positions to all teams.");
       return;
     }
 
-    // ✅ Ensure unique positions
     const selectedPositions = Object.values(placements);
+
     if (new Set(selectedPositions).size !== POSITIONS.length) {
       alert("Each position must be unique.");
       return;
@@ -84,67 +89,73 @@ const UpdateTournament = () => {
     try {
       const batch = writeBatch(db);
 
-      /* 🔢 Get tournament number */
-      const counterRef = doc(db, "meta", "tournamentCounter");
-      const counterSnap = await getDoc(counterRef);
-
-      if (!counterSnap.exists()) {
-        alert("Tournament counter is missing.");
-        return;
-      }
-
-      const currentNo = counterSnap.data().current;
-      const nextTournamentNo = currentNo + 1;
-
-      /* 🏆 Update teams safely */
+      // UPDATE STANDINGS
       TEAMS.forEach((team) => {
         const updates = getStatsUpdate(placements[team]);
-        const teamRef = doc(db, "teams", team);
 
-        // SAFE WRITE
-        batch.set(teamRef, updates, { merge: true });
+        const standingsRef = doc(
+          db,
+          "seasons",
+          selectedSeason,
+          "standings",
+          team
+        );
+
+        batch.set(
+          standingsRef,
+          updates,
+          { merge: true }
+        );
       });
 
-      /* 📄 Save tournament result */
-      const resultRef = doc(collection(db, "tournamentResults"));
-      batch.set(resultRef, {
-        tournamentNo: nextTournamentNo,
+      // SAVE TOURNAMENT
+      const tournamentRef = doc(
+        collection(
+          db,
+          "seasons",
+          selectedSeason,
+          "tournaments"
+        )
+      );
+
+      batch.set(tournamentRef, {
+        season: selectedSeason,
         results: placements,
         createdAt: serverTimestamp(),
       });
 
-      /* ➕ Increment counter */
-      batch.update(counterRef, {
-        current: increment(1),
-      });
-
       await batch.commit();
 
-      alert(`Tournament ${nextTournamentNo} submitted successfully.`);
+      alert(`${selectedSeason} tournament submitted successfully.`);
+
       setPlacements({});
     } catch (error) {
-      console.error("Submission failed:", error);
+      console.error(error);
       alert(error.message);
     }
   };
 
-  /* ================= RESET ================= */
-
-  const handleResetAll = async () => {
+  const handleResetSeason = async () => {
     const confirmReset = window.confirm(
-      "This will reset ALL tournament stats. Are you sure?"
+      `Reset all standings for ${selectedSeason}?`
     );
+
     if (!confirmReset) return;
 
     try {
       const batch = writeBatch(db);
 
       TEAMS.forEach((team) => {
-        const teamRef = doc(db, "teams", team);
+        const standingsRef = doc(
+          db,
+          "seasons",
+          selectedSeason,
+          "standings",
+          team
+        );
 
-        // SAFE RESET
         batch.set(
-          teamRef,
+          standingsRef,
           {
             totalPoints: 0,
             firstCount: 0,
@@ -158,41 +169,70 @@ const UpdateTournament = () => {
 
       await batch.commit();
 
-      alert("All tournament records have been reset.");
+      alert(`${selectedSeason} standings reset.`);
     } catch (error) {
-      console.error("Reset failed:", error);
-      alert("Failed to reset tournament data.");
+      console.error(error);
+      alert("Failed to reset standings.");
     }
   };
-
-  /* ================= UI ================= */
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-2 md:px-6">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
-        {/* LEFT — FORM */}
+
+        {/* LEFT */}
         <div className="lg:col-span-1 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-5 md:p-6">
+
           <Text className="text-2xl font-semibold mb-5 text-center">
             Update Tournament
           </Text>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* SEASON SELECT */}
+          <select
+            value={selectedSeason}
+            onChange={(e) => setSelectedSeason(e.target.value)}
+            className="w-full mb-5 bg-black/40 text-white px-3 py-3 rounded-lg border border-white/20 focus:ring-2 focus:ring-[#41FFEE] outline-none transition"
+          >
+            {SEASONS.map((season) => (
+              <option
+                key={season}
+                value={season}
+              >
+                {season}
+              </option>
+            ))}
+          </select>
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
             {TEAMS.map((team) => (
-              <div key={team} className="flex items-center justify-between gap-3">
-                <Text className="text-sm font-medium">{team}</Text>
+              <div
+                key={team}
+                className="flex items-center justify-between gap-3"
+              >
+                <Text className="text-sm font-medium">
+                  {team}
+                </Text>
 
                 <select
                   value={placements[team] || ""}
-                  onChange={(e) => handleChange(team, e.target.value)}
+                  onChange={(e) =>
+                    handleChange(team, e.target.value)
+                  }
                   className="min-w-[100px] bg-black/40 text-white px-3 py-2 rounded-lg border border-white/20 focus:ring-2 focus:ring-[#41FFEE] outline-none transition"
                   required
                 >
                   <option value="" disabled>
                     Position
                   </option>
+
                   {POSITIONS.map((pos) => (
-                    <option key={pos} value={pos}>
+                    <option
+                      key={pos}
+                      value={pos}
+                    >
                       {pos}
                     </option>
                   ))}
@@ -209,17 +249,17 @@ const UpdateTournament = () => {
 
             <Button
               type="button"
-              onClick={handleResetAll}
+              onClick={handleResetSeason}
               className="w-full bg-red-500/20 text-red-400 font-semibold py-3 rounded-xl border border-red-400/30 hover:bg-red-500/30 transition"
             >
-              Clear All Records
+              Clear Season Records
             </Button>
           </form>
         </div>
 
-        {/* RIGHT — STATS */}
+        {/* RIGHT */}
         <div className="lg:col-span-2 flex flex-col justify-center items-center rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-lg p-3 md:p-6">
-          <TournamentStats />
+          <TournamentStats selectedSeason={selectedSeason} />
         </div>
       </div>
     </div>
