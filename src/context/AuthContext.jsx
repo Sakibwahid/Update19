@@ -25,6 +25,8 @@ export const AuthProvider = ({ children }) => {
   // Initial Auth Loading
   const [loading, setLoading] = useState(true);
 
+ 
+
   useEffect(() => {
     let mounted = true;
 
@@ -39,9 +41,11 @@ export const AuthProvider = ({ children }) => {
 
             setUser(firebaseUser);
 
+            const cacheKey = `userData_${firebaseUser.uid}`;
+
             // Check local cache first
             const cachedUserData =
-              localStorage.getItem("userData");
+              localStorage.getItem(cacheKey);
 
             if (cachedUserData) {
               setUserData(JSON.parse(cachedUserData));
@@ -61,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
               // Cache locally
               localStorage.setItem(
-                "userData",
+                cacheKey,
                 JSON.stringify(result.data)
               );
             }
@@ -75,7 +79,7 @@ export const AuthProvider = ({ children }) => {
             setUserData(null);
 
             // Clear cache
-            localStorage.removeItem("userData");
+            localStorage.removeItem(cacheKey);
           }
         } catch (error) {
           console.error(

@@ -1,105 +1,149 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   doc,
   getDoc,
   onSnapshot,
   collection,
-  setDoc,
-  deleteDoc,
 } from "firebase/firestore";
-import { auth, db } from "../lib/firebase/config";
+
+import { db } from "../lib/firebase/config";
+import { useAuth } from "../context/AuthContext";
+
 import { Anchor } from "../components/ui/Anchor";
 import { Text } from "../components/ui/Text";
-import TournamentStats from "../components/Tournament/TournamentStats";
-import DisplaySquad from "../components/Squads/DisplaySquad";
-import Loadin from "../components/ui/loadin"; 
+import Loadin from "../components/ui/loadin";
+
+const TEAMS_CACHE_KEY = "teams_cache_v1";
+const CACHE_MAX_AGE_MS = 1000 * 60 * 5;
+
+const renameMap = {
+  City: "Manchester City F.C.",
+  ManU: "Manchester United F.C.",
+  Bayern: "FC Bayern Munich",
+  Liverpool: "Liverpool F.C.",
+  Wolves: "Wolverhampton Wanderers F.C.",
+};
+
+const shortMap = Object.fromEntries(
+  Object.entries(renameMap).map(([k, v]) => [v, k])
+);
 
 const UserDashboard = () => {
-  const [userData, setUserData] = useState(null);
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { userData, loading: authLoading } = useAuth();
 
-  const renameMap = {
-    City: "Manchester City F.C.",
-    ManU: "Manchester United F.C.",
-    Bayern: "FC Bayern Munich",
-    Liverpool: "Liverpool F.C.",
-    Wolves: "Wolverhampton Wanderers F.C.",
-  };
+  const [teams, setTeams] = useState([]);
+  const [initialLoad, setInitialLoad] = useState(true);
 
-  const shortMap = Object.fromEntries(
-    Object.entries(renameMap).map(([k, v]) => [v, k])
-  );
-
-  const teamNameShort = userData ? shortMap[userData.teamName] || "City" : "City";
-
-  // Fetch current user
+  /* ---------------- AUTH GUARD ---------------- */
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) return navigate("/login");
+    if (!authLoading && !userData) {
+      navigate("/login");
+    }
+  }, [authLoading, userData, navigate]);
 
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) return navigate("/login");
-
-      setUserData(userDoc.data());
-    };
-
-    fetchUserData();
-  }, [navigate]);
-
-  // Live fetching of teams + rename
+  /* ---------------- LOAD CACHE FIRST ---------------- */
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "teams"), async (snapshot) => {
-      const data = [];
+    try {
+      const cached = localStorage.getItem(TEAMS_CACHE_KEY);
 
-      for (const docSnap of snapshot.docs) {
-        let docData = docSnap.data();
-        let docId = docSnap.id;
+      if (cached) {
+        const parsed = JSON.parse(cached);
 
-        if (renameMap[docId]) {
-          const fullName = renameMap[docId];
-          const fullRef = doc(db, "teams", fullName);
-          const fullSnap = await getDoc(fullRef);
-
-          if (!fullSnap.exists()) {
-            await setDoc(fullRef, docData);
-            await deleteDoc(doc(db, "teams", docId));
-            docId = fullName;
-          } else {
-            docId = fullName;
-          }
+        if (
+          parsed?.data &&
+          Date.now() - parsed.savedAt < CACHE_MAX_AGE_MS
+        ) {
+          setTeams(parsed.data);
+          setInitialLoad(false);
         }
-
-        data.push({ name: docId, ...docData });
       }
-
-      // SORTING: points → firstCount → secondCounts
-      data.sort((a, b) => {
-        if ((b.totalPoints || 0) !== (a.totalPoints || 0))
-          return (b.totalPoints || 0) - (a.totalPoints || 0);
-        if ((b.firstCount || 0) !== (a.firstCount || 0))
-          return (b.firstCount || 0) - (a.firstCount || 0);
-        if ((b.secondCounts || 0) !== (a.secondCounts || 0))
-          return (b.secondCounts || 0) - (a.secondCounts || 0);
-        return 0;
-      });
-
-      setTeams(data);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    } catch {
+      localStorage.removeItem(TEAMS_CACHE_KEY);
+    }
   }, []);
 
-  const userRank = teams.findIndex((t) => t.name === teamNameShort) + 1;
-  const userPoints = teams.find((t) => t.name === teamNameShort)?.totalPoints || 0;
+  /* ---------------- REALTIME FIRESTORE ---------------- */
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "teams"),
+      async (snapshot) => {
+        try {
+          const resolvedTeams = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let docId = docSnap.id;
+              let data = docSnap.data();
 
-  if (!userData) return  <Loadin>Preparin your experience</Loadin>
+              if (renameMap[docId]) {
+                const fullName = renameMap[docId];
+
+                const fullSnap = await getDoc(
+                  doc(db, "teams", fullName)
+                );
+
+                if (fullSnap.exists()) {
+                  docId = fullName;
+                  data = fullSnap.data();
+                }
+              }
+
+              return { name: docId, ...data };
+            })
+          );
+
+          resolvedTeams.sort((a, b) => {
+            if ((b.totalPoints || 0) !== (a.totalPoints || 0)) {
+              return b.totalPoints - a.totalPoints;
+            }
+
+            if ((b.firstCount || 0) !== (a.firstCount || 0)) {
+              return b.firstCount - a.firstCount;
+            }
+
+            return (b.secondCounts || 0) - (a.secondCounts || 0);
+          });
+
+          setTeams(resolvedTeams);
+
+          localStorage.setItem(
+            TEAMS_CACHE_KEY,
+            JSON.stringify({
+              data: resolvedTeams,
+              savedAt: Date.now(),
+            })
+          );
+
+          if (initialLoad) setInitialLoad(false);
+        } catch (err) {
+          console.error("Teams snapshot error:", err);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [initialLoad]);
+
+  /* ---------------- DERIVED VALUES ---------------- */
+  const teamNameShort = useMemo(() => {
+    if (!userData) return "City";
+    return shortMap[userData.teamName] || "City";
+  }, [userData]);
+
+  const userRank = useMemo(() => {
+    return teams.findIndex((t) => t.name === teamNameShort) + 1;
+  }, [teams, teamNameShort]);
+
+  const userPoints = useMemo(() => {
+    return (
+      teams.find((t) => t.name === teamNameShort)?.totalPoints || 0
+    );
+  }, [teams, teamNameShort]);
+
+  /* ---------------- LOADING LOGIC (FIXED) ---------------- */
+  if (authLoading || (!userData && initialLoad)) {
+    return <Loadin>Loading dashboard...</Loadin>;
+  }
 
   return (
     <div className="min-h-screen w-full text-white flex justify-center px-4 py-10">
@@ -107,70 +151,123 @@ const UserDashboard = () => {
 
         {/* USER HEADER */}
         <div className="relative backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-lg">
+
           <div className="flex flex-col md:flex-row md:justify-between md:items-center w-full gap-4">
+
             <div className="flex justify-between w-full items-center">
-            <div className="flex flex-col">
-              <h1 className="text-4xl font-semibold tracking-tight">
-                {userData.username}
-              </h1>
-              <Text variant="para" className="text-gray-300 mt-1">
-                Team: <span className="text-white font-medium">{userData.teamName}</span>
-              </Text>
-              <Text variant="para" className="text-gray-300 mt-1">Welcome Back</Text>
-            </div>
-            <div className="flex flex-col items-start md:items-end gap-1">
-              <Text variant="subheading" className="text-gray-300">
-                Points: <span className="font-semibold text-[#41FEee]">{userPoints}</span>
-              </Text>
-              <Text variant="subheading" className="text-gray-300">
-                Rank: <span className="font-semibold text-[#41FEee]">{userRank}</span>
-              </Text>
-            </div>
+
+              <div className="flex flex-col">
+                <Text
+                  variant="heading"
+                  className="text-4xl font-semibold tracking-tight"
+                >
+                  {userData.username}
+                </Text>
+
+                <Text
+                  variant="para"
+                  className="text-gray-300 mt-1"
+                >
+                  Team:
+                  <span className="text-white font-medium ml-1">
+                    {userData.teamName}
+                  </span>
+                </Text>
+
+                <Text
+                  variant="para"
+                  className="text-gray-300 mt-1"
+                >
+                  Welcome Back
+                </Text>
+              </div>
+
+              <div className="flex flex-col items-start md:items-end gap-1">
+
+                <Text variant="subheading" className="text-gray-300">
+                  Points:
+                  <span className="font-semibold text-[#41FEee] ml-1">
+                    {userPoints}
+                  </span>
+                </Text>
+
+                <Text variant="subheading" className="text-gray-300">
+                  Rank:
+                  <span className="font-semibold text-[#41FEee] ml-1">
+                    {userRank}
+                  </span>
+                </Text>
+
+              </div>
 
             </div>
+
           </div>
-
         </div>
 
         {/* ACTION PANEL */}
         <div className="relative backdrop-blur-md bg-white/5 border border-white/20 rounded-2xl p-6 md:p-8 shadow-lg">
-          <h2 className="text-xl font-semibold text-center mb-6">
+
+          <Text
+            variant="subheading"
+            className="text-xl font-semibold text-center mb-6"
+          >
             What would you like to do?
-          </h2>
+          </Text>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
             <Anchor to="/auction">
               <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">Enter Auction</h3>
+                <Text
+                  variant="subheading"
+                  className="text-lg font-semibold mb-2 group-hover:text-blue-400"
+                >
+                  Enter Auction
+                </Text>
               </div>
             </Anchor>
 
             <Anchor to="/tournamentstats">
               <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">See Tournament Stats</h3>
-               
+                <Text
+                  variant="subheading"
+                  className="text-lg font-semibold mb-2 group-hover:text-blue-400"
+                >
+                  See Tournament Stats
+                </Text>
               </div>
             </Anchor>
 
             <Anchor to="/user/squad">
               <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">See Your Squad</h3>
+                <Text
+                  variant="subheading"
+                  className="text-lg font-semibold mb-2 group-hover:text-blue-400"
+                >
+                  See Your Squad
+                </Text>
               </div>
             </Anchor>
 
             <Anchor to="/user/buildsquad">
               <div className="group cursor-pointer border border-[#41FFEE] rounded-xl py-2 text-center transition-all hover:bg-white/10 hover:border-blue-400/50">
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400">Build Squad</h3>
+                <Text
+                  variant="subheading"
+                  className="text-lg font-semibold mb-2 group-hover:text-blue-400"
+                >
+                  Build Squad
+                </Text>
               </div>
             </Anchor>
+
           </div>
+
         </div>
 
-        
       </div>
     </div>
   );
 };
 
 export default UserDashboard;
-

@@ -8,10 +8,12 @@ import {
   getDoc,
   doc,
 } from "firebase/firestore";
-import { db, auth } from "../../lib/firebase/config";
+import { db } from "../../lib/firebase/config";
+import { useAuth } from "../../context/AuthContext";
 import { Text } from "../ui/Text";
 import Loadin from "../ui/loadin";
 import FieldView from "./FieldView";
+import { onSnapshot } from "firebase/firestore";
 
 const POSITION_GROUPS = {
   GK: ["GK"],
@@ -27,110 +29,140 @@ const getGroup = (pos) => {
   if (POSITION_GROUPS.FWD.includes(pos)) return "FWD";
   return "Others";
 };
+ const squadCache = new Map();
+ let squadUnsub = null;
 
-const sumValue = (list) =>
-  list.reduce((acc, p) => acc + (p.soldPrice ?? 0), 0);
+const sumValue = (list) => list.reduce((acc, p) => acc + (p.soldPrice ?? 0), 0);
 
 /* ─────────────────────────────────────────
    GLOBAL CACHE (persists across navigation)
 ───────────────────────────────────────── */
-const squadCache = new Map();
+
 
 const DisplaySquad = () => {
   const [players, setPlayers] = useState([]);
-  const [userTeamId, setUserTeamId] = useState(null);
-  const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [position, setPosition] = useState("All players");
   const [viewMode, setViewMode] = useState("list");
   const [seasonId, setSeasonId] = useState("S3");
-
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
   /* ---------------- USER TEAM ---------------- */
+
+  const { userData } = useAuth();
+  
+  const userTeamId = userData?.teamId || null;
+  
   useEffect(() => {
-    const fetchUserTeam = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        const teamId = snap.data().teamId;
-        setUserTeamId(teamId);
-        setSelectedTeamId(teamId);
-      }
-    };
-    fetchUserTeam();
-  }, []);
+    if (userTeamId && !selectedTeamId) {
+      setSelectedTeamId(userTeamId);
+    }
+  }, [userTeamId, selectedTeamId]);
 
   /* ---------------- FETCH SQUAD (CACHED + ZERO FLICKER) ---------------- */
-  useEffect(() => {
-    if (!selectedTeamId || !seasonId) return;
+ useEffect(() => {
+  if (!selectedTeamId || !seasonId) return;
 
-    const key = `${selectedTeamId}_${seasonId}_${position}`;
+  const key = `${selectedTeamId}_${seasonId}_${position}`;
 
-    const fetchPlayers = async () => {
-      // 🔥 INSTANT CACHE HIT (NO LOADING)
-      if (squadCache.has(key)) {
-        setPlayers(squadCache.get(key));
-        return;
-      }
+  const loadSquad = async () => {
+    // 1. INSTANT CACHE (NO LOADING CHANGE)
+    if (squadCache.has(key)) {
+      setPlayers(squadCache.get(key));
+    }
 
-      setLoading(true);
+    // 2. FIRESTORE ONE-TIME FETCH (silent refresh)
+    const seasonQuery = query(
+      collection(db, "season_players"),
+      where("teamId", "==", selectedTeamId),
+      where("seasonId", "==", seasonId)
+    );
 
-      try {
-        const seasonQuery = query(
-          collection(db, "season_players"),
-          where("teamId", "==", selectedTeamId),
-          where("seasonId", "==", seasonId)
-        );
+    const seasonSnap = await getDocs(seasonQuery);
 
-        const seasonSnap = await getDocs(seasonQuery);
+    const seasonData = seasonSnap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
 
-        const seasonData = seasonSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
+    if (!seasonData.length) {
+      squadCache.set(key, []);
+      setPlayers([]);
+      return;
+    }
 
-        if (seasonData.length === 0) {
-          squadCache.set(key, []);
-          setPlayers([]);
-          setLoading(false);
-          return;
-        }
+    const playerSnaps = await Promise.all(
+      seasonData.map((sp) =>
+        getDoc(doc(db, "players", sp.playerId))
+      )
+    );
 
-        const playerPromises = seasonData.map((sp) =>
-          getDoc(doc(db, "players", sp.playerId))
-        );
+    const playerMap = {};
+    playerSnaps.forEach((snap) => {
+      if (snap.exists()) playerMap[snap.id] = snap.data();
+    });
 
-        const playerSnaps = await Promise.all(playerPromises);
+    let merged = seasonData.map((sp) => ({
+      ...playerMap[sp.playerId],
+      ...sp,
+    }));
 
-        const playerMap = {};
-        playerSnaps.forEach((snap) => {
-          if (snap.exists()) playerMap[snap.id] = snap.data();
-        });
+    if (position !== "All players") {
+      merged = merged.filter((p) => p.Position === position);
+    }
 
-        let merged = seasonData.map((sp) => ({
-          ...playerMap[sp.playerId],
-          ...sp,
-        }));
+    merged.sort((a, b) => (b.Overall || 0) - (a.Overall || 0));
 
-        if (position !== "All players") {
-          merged = merged.filter((p) => p.Position === position);
-        }
+    squadCache.set(key, merged);
+    setPlayers(merged);
+  };
 
-        merged.sort((a, b) => (b.Overall || 0) - (a.Overall || 0));
+  loadSquad();
 
-        // 🔥 SAVE TO CACHE
-        squadCache.set(key, merged);
+  // 3. REALTIME LISTENER (ONLY ONE ACTIVE)
+  if (squadUnsub) squadUnsub();
 
-        setPlayers(merged);
-      } catch (err) {
-        console.error("Error fetching squad:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const liveQuery = query(
+    collection(db, "season_players"),
+    where("teamId", "==", selectedTeamId),
+    where("seasonId", "==", seasonId)
+  );
 
-    fetchPlayers();
-  }, [selectedTeamId, position, seasonId]);
+  squadUnsub = onSnapshot(liveQuery, async (snap) => {
+    const seasonData = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+
+    const playerSnaps = await Promise.all(
+      seasonData.map((sp) =>
+        getDoc(doc(db, "players", sp.playerId))
+      )
+    );
+
+    const playerMap = {};
+    playerSnaps.forEach((snap) => {
+      if (snap.exists()) playerMap[snap.id] = snap.data();
+    });
+
+    let merged = seasonData.map((sp) => ({
+      ...playerMap[sp.playerId],
+      ...sp,
+    }));
+
+    if (position !== "All players") {
+      merged = merged.filter((p) => p.Position === position);
+    }
+
+    merged.sort((a, b) => (b.Overall || 0) - (a.Overall || 0));
+
+    squadCache.set(key, merged);
+    setPlayers(merged);
+  });
+
+  return () => {
+    if (squadUnsub) squadUnsub();
+  };
+}, [selectedTeamId, seasonId, position]);
 
   /* ---------------- GROUP PLAYERS ---------------- */
   const groupedPlayers = players.reduce((acc, p) => {
@@ -142,11 +174,8 @@ const DisplaySquad = () => {
 
   const totalValue = sumValue(players);
 
-  if (loading) return <Loadin>Players are loading...</Loadin>;
-
   return (
     <div className="p-4 max-h-screen min-w-full flex flex-col mx-auto space-y-4">
-
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <Text variant="subheading" className="text-white mb-4">
@@ -221,7 +250,6 @@ const DisplaySquad = () => {
           {/* VALUE SUMMARY */}
           {players.length > 0 && (
             <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl px-5 py-4 flex flex-col gap-3">
-
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-widest text-white/40">
                   Total Squad Value

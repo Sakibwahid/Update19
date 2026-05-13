@@ -8,13 +8,23 @@ import PlayerCardDemo from "../player/PlayerCardDemo";
    CurrentAuctionPanel
 ───────────────────────────────────────── */
 const CurrentAuctionPanel = () => {
+  const TEAMS = [
+    { id: "wolves01", name: "Wolves", color: "#FDB913" },
+    { id: "bayern05", name: "Bayern Munich", color: "#DC052D" },
+    { id: "city04", name: "Manchester City", color: "#6CABDD" },
+    { id: "united03", name: "Manchester United", color: "#DA291C" },
+    { id: "liverpool01", name: "Liverpool", color: "#C8102E" },
+  ];
+
   const { currentPlayer, loading } = useCurrentPlayer();
   const soldPrice = currentPlayer?.soldPrice;
   const isSold = currentPlayer?.status || false;
-  const playerteam = currentPlayer?.team || "N/A";
-  console.log(playerteam);
+  const playerteam = currentPlayer?.currentTeamId || "N/A";
+  const matchedTeam = TEAMS.find((team) => team.id === playerteam);
+  const teamName = matchedTeam?.name || "N/A";
+  const teamColor = matchedTeam?.color || "rgba(255,255,255,0.05)";
   console.log(soldPrice);
-  console.log(currentPlayer)
+  console.log(currentPlayer);
 
   return (
     <div
@@ -74,19 +84,23 @@ const CurrentAuctionPanel = () => {
 
             {soldPrice ? (
               <div
+                style={{ borderColor: teamColor }}
                 className="
-                  rounded-xl border border-white/10
-                  bg-white/5
-                  px-3 py-2
-                  flex items-center justify-between
-                "
+               rounded-xl border-2
+               px-3 py-2
+              flex items-center justify-between
+              "
               >
-                <span className="text-[10px] sm:text-xs uppercase tracking-widest text-white/70">
-                  Last Sold Price
+                <div className="flex justify-center items-center gap-2 ">
+                  <div style={{background : teamColor}} className="w-2 h-2 rounded-full">
+                    
+                  </div>
+                  <span  className="text-md sm:text-xs font-bold tracking-widest text-white/70">
+                  {teamName}
                 </span>
-
-                <span className="text-lg sm:text-xl font-bold text-cyan-300">
-                  {soldPrice}M
+                </div>
+                <span className="text-lg sm:text-xl font-bold text-white">
+                   {soldPrice}M
                 </span>
               </div>
             ) : (
