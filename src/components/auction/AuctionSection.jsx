@@ -19,10 +19,12 @@ const CurrentAuctionPanel = () => {
   const { currentPlayer, loading } = useCurrentPlayer();
   const soldPrice = currentPlayer?.soldPrice;
   const isSold = currentPlayer?.status || false;
+  const season = currentPlayer?.currentSeasonId || "N/A";
   const playerteam = currentPlayer?.currentTeamId || "N/A";
   const matchedTeam = TEAMS.find((team) => team.id === playerteam);
   const teamName = matchedTeam?.name || "N/A";
   const teamColor = matchedTeam?.color || "rgba(255,255,255,0.05)";
+
   console.log(soldPrice);
   console.log(currentPlayer);
 
@@ -96,7 +98,7 @@ const CurrentAuctionPanel = () => {
                     
                   </div>
                   <span  className="text-md sm:text-xs font-bold tracking-widest text-white/70">
-                  {teamName}
+                  {teamName}({season})
                 </span>
                 </div>
                 <span className="text-lg sm:text-xl font-bold text-white">

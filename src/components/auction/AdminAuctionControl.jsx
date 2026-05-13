@@ -82,7 +82,7 @@ const AdminAuctionControl = () => {
   const fetchAllPlayers = async () => {
     try {
       // limit(318) correctly applied as a query modifier
-      const q = query(collection(db, "players"), limit(318));
+      const q = query(collection(db, "players"), limit(500));
       const snapshot = await getDocs(q);
       const grouped = {};
 
